@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d6fa5"/><stop offset="1" stop-color="#123b63"/></linearGradient></defs>
+  <rect width="192" height="192" rx="42" fill="url(#b)"/>
+  <path d="M28 132V60h18l30 42V60h18v72H76L46 90v42z" fill="#fff"/>
+  <path d="M105 60h58v16h-20v56h-18V76h-20z" fill="#f5b544"/>
+  <circle cx="157" cy="38" r="12" fill="#f5b544"/>
+  <text x="96" y="178" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#dcecf8">NILAI v2</text>
+</svg>

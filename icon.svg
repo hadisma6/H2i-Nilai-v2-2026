@@ -1,0 +1,31 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient untuk memberikan efek modern pada background -->
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/> <!-- Lighter Blue -->
+      <stop offset="100%" stop-color="#1e40af"/> <!-- Darker Blue -->
+    </linearGradient>
+  </defs>
+
+  <!-- Background Rounded Rectangle -->
+  <rect x="0" y="0" width="512" height="512" rx="120" ry="120" fill="#2563eb"/>
+  
+  <!-- Overlay Gradient for Depth (Optional) -->
+  <rect x="0" y="0" width="512" height="512" rx="120" ry="120" fill="url(#grad)" opacity="0.3"/>
+
+  <!-- Text H2i -->
+  <text x="50%" y="55%" 
+        font-family="'Segoe UI', Roboto, sans-serif" 
+        font-weight="900" 
+        font-size="240" 
+        fill="#ffffff" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+        letter-spacing="-8"
+        style="text-shadow: 4px 4px 10px rgba(0,0,0,0.2);">
+    H2i
+  </text>
+
+  <!-- Aksen Dot (Orange - seperti notifikasi/status aktif) -->
+  <circle cx="390" cy="120" r="35" fill="#f59e0b" stroke="#2563eb" stroke-width="10"/>
+</svg>
