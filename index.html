@@ -1015,6 +1015,11 @@
                             <div class="settings-icon"><i class="bi bi-hdd-network"></i></div> Koneksi Database
                         </div><i class="bi bi-chevron-right text-muted"></i>
                     </button>
+                    <button class="settings-btn" onclick="clearApplicationCache()">
+                        <div class="d-flex align-items-center">
+                            <div class="settings-icon"><i class="bi bi-arrow-clockwise"></i></div> Bersihkan Cache & Muat Data Terbaru
+                        </div><i class="bi bi-chevron-right text-muted"></i>
+                    </button>
                 </div>
                 <div id="sub-siswa" class="d-none">
                     <div class="d-flex align-items-center mb-3"><button class="btn btn-sm btn-light border me-2"
@@ -1553,6 +1558,40 @@
             }
         }
         function resetDatabaseConnection() { if (confirm('Reset Koneksi Database?')) { localStorage.removeItem('si_h2i_api_url'); location.reload(); } }
+
+        async function clearApplicationCache() {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Bersihkan Cache Aplikasi?',
+                html: 'Cache data lokal, Service Worker, dan cache server akan dibersihkan. Data Google Sheets tidak dihapus.',
+                showCancelButton: true,
+                confirmButtonText: 'Bersihkan & Muat Ulang',
+                cancelButtonText: 'Batal'
+            });
+            if (!result.isConfirmed) return;
+            Swal.fire({ title: 'Membersihkan cache...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                // Bersihkan cache Apps Script terlebih dahulu jika API tersedia.
+                if (API_URL) await apiRequest({ action: 'clearCache' });
+                Object.keys(localStorage).forEach(key => {
+                    if (key.indexOf('cache_') === 0) localStorage.removeItem(key);
+                });
+                sessionStorage.clear();
+                if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    await Promise.all(cacheKeys.map(key => caches.delete(key)));
+                }
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(registration => registration.unregister()));
+                }
+                localStorage.setItem('h2i_cache_cleared_at', new Date().toISOString());
+                window.location.replace(window.location.pathname + '?fresh=' + Date.now());
+            } catch (error) {
+                console.error('Clear cache error:', error);
+                Swal.fire('Sebagian Berhasil', 'Cache lokal dibersihkan. Muat ulang halaman secara manual.', 'warning');
+            }
+        }
 
         // ✅ OPTIMASI: Deduplikasi request — jika request yang sama sedang diproses, gunakan promise yang sama
         const _inflightRequests = {};

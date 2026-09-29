@@ -38,6 +38,17 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((response) => {
+      const path = new URL(event.request.url).pathname;
+      const alwaysFresh = /\/(index\.html|manifest\.json|sw\.js|icon-192\.svg|icon-512\.svg)$/.test(path);
+      if (alwaysFresh) {
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.ok) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        }).catch(() => response || Promise.reject(new Error('Offline')));
+      }
       if (response) return response;
       return fetch(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.ok && event.request.url.startsWith(self.location.origin)) {
