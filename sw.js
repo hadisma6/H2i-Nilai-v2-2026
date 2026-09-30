@@ -1,4 +1,4 @@
-const CACHE_NAME = 'h2i-nilai-v2-cache-2026-09';
+const CACHE_NAME = 'h2i-nilai-v2-cache-2026-11';
 const FILES_TO_CACHE = [
   './index.html',
   './manifest.json',

@@ -16,7 +16,8 @@ function doPost(e) {
         'simpanNilai', 'hapusNilai', 'simpanJurnal', 'hapusJurnal',
         'simpanJadwal', 'hapusJadwal', 'simpanPoint', 'hapusPoint',
         'simpanPresensi', 'hapusPresensi', 'simpanPengaturanSekolah',
-        'simpanBatchPresensi', 'fixPresensiNIS', 'clearCache'
+        'simpanBatchPresensi', 'fixPresensiNIS', 'clearCache', 'deduplicatePresensi',
+        'simpanMapelV2', 'simpanBabV2', 'simpanTugasV2', 'hapusMapelV2', 'hapusBabV2', 'hapusTugasV2'
     ];
 
     try {
@@ -42,6 +43,13 @@ function doPost(e) {
             // --- MASTER DATA ---
             case 'getDashboardStats': r = getDashboardStats(); break;
             case 'getMapel': r = getMapel(); break;
+            case 'getKurikulumV2': r = getKurikulumV2(); break;
+            case 'simpanMapelV2': r = simpanMapelV2(p); break;
+            case 'hapusMapelV2': r = hapusMapelV2(p); break;
+            case 'simpanBabV2': r = simpanBabV2(p); break;
+            case 'hapusBabV2': r = hapusBabV2(p); break;
+            case 'simpanTugasV2': r = simpanTugasV2(p); break;
+            case 'hapusTugasV2': r = hapusTugasV2(p); break;
             case 'simpanMapel': r = simpanMapel(p); break;
             case 'hapusMapel': r = hapusMapel(p); break;
             case 'getSiswa': r = getSiswa(); break;
@@ -83,6 +91,8 @@ function doPost(e) {
             case 'debugPresensiFlow': r = debugPresensiFlow(); break;
             case 'debugNISMatching': r = debugNISMatching(); break;
             case 'fixPresensiNIS': r = fixPresensiNIS(); break;
+            case 'simpanBatchPresensi': r = simpanBatchPresensi(p); break;
+            case 'deduplicatePresensi': r = deduplicatePresensi(); break;
 
             // --- AUDIT ---
             case 'auditDataGap': r = auditDataGap(); break;
@@ -111,6 +121,7 @@ function getSpreadsheet() {
     return _ss;
 }
 function getSheet(n) { var ss = getSpreadsheet(); var s = ss.getSheetByName(n); if (!s) s = ss.insertSheet(n); return s; }
+function getExistingSheet(n) { return getSpreadsheet().getSheetByName(n); }
 function getCache() { return CacheService.getScriptCache(); }
 
 // --- PENGATURAN SEKOLAH ---
@@ -173,59 +184,345 @@ function simpanPengaturanSekolah(p) {
 
 // --- MASTER DATA ---
 
+// Database V2 disimpan terpisah agar struktur lama tetap aman dan tetap dapat dibaca.
+function ensureV2Sheet(name, headers) {
+    var s = getSheet(name);
+    if (s.getLastRow() === 0) s.appendRow(headers);
+    return s;
+}
+
+function getV2Sheet(name) {
+    return getExistingSheet(name);
+}
+
+function cleanV2Id(value) {
+    return String(value || '').replace(/^'/, '').trim();
+}
+
+function getKurikulumV2() {
+    try {
+        var mapelSheet = getV2Sheet('DataMapelMaster');
+        var babSheet = getV2Sheet('DataBab');
+        var tugasSheet = getV2Sheet('DataTugas');
+        var mapelRows = mapelSheet && mapelSheet.getLastRow() > 1 ? mapelSheet.getDataRange().getValues().slice(1) : [];
+        var babRows = babSheet && babSheet.getLastRow() > 1 ? babSheet.getDataRange().getValues().slice(1) : [];
+        var tugasRows = tugasSheet && tugasSheet.getLastRow() > 1 ? tugasSheet.getDataRange().getValues().slice(1) : [];
+        var tugasByBab = {};
+        tugasRows.forEach(function (r) {
+            if (!r[0] || String(r[5] || 'AKTIF').toUpperCase() === 'NONAKTIF') return;
+            var babId = cleanV2Id(r[1]);
+            if (!tugasByBab[babId]) tugasByBab[babId] = [];
+            tugasByBab[babId].push({ id_tugas: cleanV2Id(r[0]), nama_tugas: String(r[2] || '').trim(), bobot: parseFloat(r[3]) || 0, nilai_maks: parseFloat(r[4]) || 100 });
+        });
+        var babByMapel = {};
+        babRows.forEach(function (r) {
+            if (!r[0] || String(r[6] || 'AKTIF').toUpperCase() === 'NONAKTIF') return;
+            var babId = cleanV2Id(r[0]);
+            var mapelId = cleanV2Id(r[1]);
+            if (!babByMapel[mapelId]) babByMapel[mapelId] = [];
+            babByMapel[mapelId].push({ id_bab: babId, nama_bab: String(r[2] || '').trim(), elemen: String(r[3] || '').trim(), tujuan: String(r[4] || '').trim(), urutan: parseInt(r[5], 10) || 0, tugas: tugasByBab[babId] || [] });
+        });
+        var data = mapelRows.filter(function (r) { return r[0] && String(r[4] || 'AKTIF').toUpperCase() !== 'NONAKTIF'; }).map(function (r) {
+            var id = cleanV2Id(r[0]);
+            return { id_mapel: id, nama_mapel: String(r[1] || '').trim(), tingkat: String(r[2] || '').trim().toUpperCase(), semester: String(r[3] || '').trim(), status: String(r[4] || 'AKTIF').trim(), bab: babByMapel[id] || [] };
+        });
+        return { status: 'success', version: 'v2', data: data, totals: { mapel: data.length, bab: Object.keys(babByMapel).reduce(function (total, key) { return total + babByMapel[key].length; }, 0), tugas: Object.keys(tugasByBab).reduce(function (total, key) { return total + tugasByBab[key].length; }, 0) } };
+    } catch (err) {
+        return { status: 'error', message: 'Gagal membaca kurikulum V2: ' + err.toString() };
+    }
+}
+
+function getV2TasksForBab(idBab) {
+    var s = getV2Sheet('DataTugas');
+    if (!s || s.getLastRow() <= 1) return [];
+    return s.getDataRange().getValues().slice(1).filter(function (r) {
+        return cleanV2Id(r[0]) && cleanV2Id(r[1]) === cleanV2Id(idBab) && String(r[5] || 'AKTIF').toUpperCase() !== 'NONAKTIF';
+    }).map(function (r) {
+        return { id_tugas: cleanV2Id(r[0]), nama_tugas: String(r[2] || '').trim(), bobot: parseFloat(r[3]) || 0, nilai_maks: parseFloat(r[4]) || 100 };
+    });
+}
+
+function getV2BabMap() {
+    var kurikulum = getKurikulumV2();
+    var result = {};
+    (kurikulum.data || []).forEach(function (mapel) {
+        (mapel.bab || []).forEach(function (bab) {
+            result[bab.id_bab] = { id_mapel: mapel.id_mapel, nama_mapel: mapel.nama_mapel, tingkat: mapel.tingkat, semester: mapel.semester, bab: bab };
+        });
+    });
+    return result;
+}
+
+function parseTaskConfig(value) {
+    var names = {};
+    var tasks = String(value || '').split(',').map(function (part) {
+        var pieces = part.split('='), nama = String(pieces[0] || '').trim();
+        var nilaiMaks = parseFloat(pieces[1]);
+        if (pieces.length !== 2 || !nama || isNaN(nilaiMaks) || nilaiMaks <= 0) return null;
+        var key = nama.toUpperCase();
+        if (names[key]) return null;
+        names[key] = true;
+        return { nama_tugas: nama, nilai_maks: nilaiMaks };
+    });
+    if (!tasks.length || tasks.some(function (task) { return task === null; })) return null;
+    return tasks;
+}
+
+function getOrCreateMapelV2(p, existingBab) {
+    var nama = String(p.nama_mapel || '').trim();
+    var tingkat = String(p.tingkat || '').trim().toUpperCase();
+    var semester = String(p.semester || '').trim();
+    var all = getKurikulumV2().data || [];
+    var match = null;
+    for (var i = 0; i < all.length; i++) {
+        if (String(all[i].nama_mapel || '').trim().toUpperCase() === nama.toUpperCase() && String(all[i].tingkat || '').trim().toUpperCase() === tingkat && String(all[i].semester || '').trim() === semester) { match = all[i]; break; }
+    }
+    if (existingBab) {
+        if (match && match.id_mapel !== existingBab.id_mapel) return match.id_mapel;
+        var updated = simpanMapelV2({ id_mapel: existingBab.id_mapel, nama_mapel: nama, tingkat: tingkat, semester: semester, status: 'AKTIF' });
+        return updated.status === 'success' ? updated.id_mapel : updated;
+    }
+    if (match) return match.id_mapel;
+    var created = simpanMapelV2({ nama_mapel: nama, tingkat: tingkat, semester: semester, status: 'AKTIF' });
+    return created.status === 'success' ? created.id_mapel : created;
+}
+
+function simpanMapelV2(p) {
+    try {
+        var nama = String(p.nama_mapel || '').trim();
+        var tingkat = String(p.tingkat || '').trim().toUpperCase();
+        if (!nama || !tingkat) return { status: 'error', message: 'Nama mapel dan tingkat wajib diisi' };
+        var s = ensureV2Sheet('DataMapelMaster', ['ID_MAPEL', 'NAMA_MAPEL', 'TINGKAT', 'SEMESTER', 'STATUS', 'CREATED_AT', 'UPDATED_AT']);
+        var d = s.getDataRange().getValues();
+        var id = cleanV2Id(p.id_mapel) || 'MPL2-' + Date.now();
+        var now = new Date();
+        for (var j = 1; j < d.length; j++) {
+            if (cleanV2Id(d[j][0]) !== id && String(d[j][1] || '').trim().toUpperCase() === nama.toUpperCase() && String(d[j][2] || '').trim().toUpperCase() === tingkat && String(d[j][3] || '').trim() === String(p.semester || '').trim() && String(d[j][4] || 'AKTIF').toUpperCase() !== 'NONAKTIF') return { status: 'error', message: 'Mapel, tingkat, dan semester sudah ada' };
+        }
+        for (var i = 1; i < d.length; i++) {
+            var rowId = cleanV2Id(d[i][0]);
+            if (rowId === id) {
+                s.getRange(i + 1, 2, 1, 6).setValues([[nama, tingkat, String(p.semester || '').trim(), String(p.status || 'AKTIF').toUpperCase(), d[i][5] || now, now]]);
+                getCache().remove('mapelData');
+                return { status: 'success', id_mapel: id, message: 'Mapel V2 diperbarui' };
+            }
+        }
+        s.appendRow([id, nama, tingkat, String(p.semester || '').trim(), String(p.status || 'AKTIF').toUpperCase(), now, now]);
+        getCache().remove('mapelData');
+        return { status: 'success', id_mapel: id, message: 'Mapel V2 dibuat' };
+    } catch (err) { return { status: 'error', message: 'Gagal simpan mapel V2: ' + err.toString() }; }
+}
+
+function simpanBabV2(p) {
+    try {
+        var mapelId = cleanV2Id(p.id_mapel), nama = String(p.nama_bab || '').trim();
+        if (!mapelId || !nama) return { status: 'error', message: 'ID mapel dan nama bab wajib diisi' };
+        var master = getKurikulumV2().data || [];
+        if (!master.some(function (m) { return m.id_mapel === mapelId; })) return { status: 'error', message: 'Mapel V2 tidak ditemukan' };
+        var s = ensureV2Sheet('DataBab', ['ID_BAB', 'ID_MAPEL', 'NAMA_BAB', 'ELEMEN', 'TUJUAN', 'URUTAN', 'STATUS', 'CREATED_AT', 'UPDATED_AT']);
+        var d = s.getDataRange().getValues(), id = cleanV2Id(p.id_bab) || 'BAB2-' + Date.now(), now = new Date();
+        for (var j = 1; j < d.length; j++) {
+            if (cleanV2Id(d[j][0]) !== id && cleanV2Id(d[j][1]) === mapelId && String(d[j][2] || '').trim().toUpperCase() === nama.toUpperCase() && String(d[j][6] || 'AKTIF').toUpperCase() !== 'NONAKTIF') return { status: 'error', message: 'Bab pada mapel tersebut sudah ada' };
+        }
+        for (var i = 1; i < d.length; i++) {
+            if (cleanV2Id(d[i][0]) === id) { s.getRange(i + 1, 2, 1, 8).setValues([[mapelId, nama, String(p.elemen || '').trim(), String(p.tujuan || '').trim(), parseInt(p.urutan, 10) || 0, String(p.status || 'AKTIF').toUpperCase(), d[i][7] || now, now]]); getCache().remove('mapelData'); return { status: 'success', id_bab: id, message: 'Bab V2 diperbarui' }; }
+        }
+        s.appendRow([id, mapelId, nama, String(p.elemen || '').trim(), String(p.tujuan || '').trim(), parseInt(p.urutan, 10) || 0, String(p.status || 'AKTIF').toUpperCase(), now, now]);
+        getCache().remove('mapelData');
+        return { status: 'success', id_bab: id, message: 'Bab V2 dibuat' };
+    } catch (err) { return { status: 'error', message: 'Gagal simpan bab V2: ' + err.toString() }; }
+}
+
+function simpanTugasV2(p) {
+    try {
+        var babId = cleanV2Id(p.id_bab), nama = String(p.nama_tugas || '').trim();
+        if (!babId || !nama) return { status: 'error', message: 'ID bab dan nama tugas wajib diisi' };
+        var kurikulum = getKurikulumV2().data || [], babAda = kurikulum.some(function (m) { return m.bab.some(function (b) { return b.id_bab === babId; }); });
+        if (!babAda) return { status: 'error', message: 'Bab V2 tidak ditemukan' };
+        var s = ensureV2Sheet('DataTugas', ['ID_TUGAS', 'ID_BAB', 'NAMA_TUGAS', 'BOBOT', 'NILAI_MAKS', 'STATUS', 'CREATED_AT', 'UPDATED_AT']);
+        var d = s.getDataRange().getValues(), id = cleanV2Id(p.id_tugas) || 'TGS2-' + Date.now(), now = new Date();
+        for (var j = 1; j < d.length; j++) {
+            if (cleanV2Id(d[j][0]) !== id && cleanV2Id(d[j][1]) === babId && String(d[j][2] || '').trim().toUpperCase() === nama.toUpperCase() && String(d[j][5] || 'AKTIF').toUpperCase() !== 'NONAKTIF') return { status: 'error', message: 'Tugas pada bab tersebut sudah ada' };
+        }
+        for (var i = 1; i < d.length; i++) {
+            if (cleanV2Id(d[i][0]) === id) { s.getRange(i + 1, 2, 1, 7).setValues([[babId, nama, parseFloat(p.bobot) || 0, parseFloat(p.nilai_maks) || 100, String(p.status || 'AKTIF').toUpperCase(), d[i][6] || now, now]]); getCache().remove('mapelData'); return { status: 'success', id_tugas: id, message: 'Tugas V2 diperbarui' }; }
+        }
+        s.appendRow([id, babId, nama, parseFloat(p.bobot) || 0, parseFloat(p.nilai_maks) || 100, String(p.status || 'AKTIF').toUpperCase(), now, now]);
+        getCache().remove('mapelData');
+        return { status: 'success', id_tugas: id, message: 'Tugas V2 dibuat' };
+    } catch (err) { return { status: 'error', message: 'Gagal simpan tugas V2: ' + err.toString() }; }
+}
+
+// Cascade hapus: Mapel → Bab → Tugas
+function hapusMapelV2(p) {
+    try {
+        var mapelId = cleanV2Id(p.id_mapel);
+        // 1. Nonaktifkan semua tugas milik bab di mapel ini
+        var babSheet = getV2Sheet('DataBab');
+        var babIds = [];
+        if (babSheet && babSheet.getLastRow() > 1) {
+            var babData = babSheet.getDataRange().getValues();
+            for (var i = 1; i < babData.length; i++) {
+                if (cleanV2Id(babData[i][1]) === mapelId) {
+                    babIds.push(cleanV2Id(babData[i][0]));
+                }
+            }
+        }
+        // 2. Nonaktifkan semua tugas milik bab-bab tersebut
+        if (babIds.length > 0) {
+            var tugasSheet = getV2Sheet('DataTugas');
+            if (tugasSheet && tugasSheet.getLastRow() > 1) {
+                var tugasData = tugasSheet.getDataRange().getValues();
+                for (var j = 1; j < tugasData.length; j++) {
+                    if (babIds.indexOf(cleanV2Id(tugasData[j][1])) !== -1) {
+                        tugasSheet.getRange(j + 1, 6).setValue('NONAKTIF');
+                    }
+                }
+            }
+            // 3. Nonaktifkan bab
+            if (babSheet && babSheet.getLastRow() > 1) {
+                var babData2 = babSheet.getDataRange().getValues();
+                for (var k = 1; k < babData2.length; k++) {
+                    if (cleanV2Id(babData2[k][1]) === mapelId) {
+                        babSheet.getRange(k + 1, 7).setValue('NONAKTIF');
+                    }
+                }
+            }
+        }
+        // 4. Nonaktifkan mapel master
+        var result = nonaktifkanV2('DataMapelMaster', mapelId);
+        getCache().remove('mapelData');
+        return result;
+    } catch (err) { return { status: 'error', message: 'Gagal hapus mapel V2: ' + err.toString() }; }
+}
+
+// Cascade hapus: Bab → Tugas
+function hapusBabV2(p) {
+    try {
+        var babId = cleanV2Id(p.id_bab);
+        // 1. Nonaktifkan semua tugas milik bab ini
+        var tugasSheet = getV2Sheet('DataTugas');
+        if (tugasSheet && tugasSheet.getLastRow() > 1) {
+            var tugasData = tugasSheet.getDataRange().getValues();
+            for (var j = 1; j < tugasData.length; j++) {
+                if (cleanV2Id(tugasData[j][1]) === babId) {
+                    tugasSheet.getRange(j + 1, 6).setValue('NONAKTIF');
+                }
+            }
+        }
+        // 2. Nonaktifkan bab
+        var result = nonaktifkanV2('DataBab', babId);
+        getCache().remove('mapelData');
+        return result;
+    } catch (err) { return { status: 'error', message: 'Gagal hapus bab V2: ' + err.toString() }; }
+}
+
+function hapusTugasV2(p) { return nonaktifkanV2('DataTugas', p.id_tugas); }
+
+function nonaktifkanV2(sheetName, idValue) {
+    try {
+        var headers = sheetName === 'DataMapelMaster' ? ['ID_MAPEL', 'NAMA_MAPEL', 'TINGKAT', 'SEMESTER', 'STATUS', 'CREATED_AT', 'UPDATED_AT'] : sheetName === 'DataBab' ? ['ID_BAB', 'ID_MAPEL', 'NAMA_BAB', 'ELEMEN', 'TUJUAN', 'URUTAN', 'STATUS', 'CREATED_AT', 'UPDATED_AT'] : ['ID_TUGAS', 'ID_BAB', 'NAMA_TUGAS', 'BOBOT', 'NILAI_MAKS', 'STATUS', 'CREATED_AT', 'UPDATED_AT'];
+        var s = ensureV2Sheet(sheetName, headers), d = s.getDataRange().getValues();
+        for (var i = 1; i < d.length; i++) if (cleanV2Id(d[i][0]) === cleanV2Id(idValue)) { s.getRange(i + 1, sheetName === 'DataMapelMaster' ? 5 : sheetName === 'DataBab' ? 7 : 6).setValue('NONAKTIF'); getCache().remove('mapelData'); return { status: 'success', message: 'Data V2 dinonaktifkan' }; }
+        return { status: 'error', message: 'Data V2 tidak ditemukan' };
+    } catch (err) { return { status: 'error', message: 'Gagal menonaktifkan data V2: ' + err.toString() }; }
+}
+
 function getMapel() {
     try {
         var cache = getCache();
         var cached = cache.get("mapelData");
         if (cached) return { status: 'success', data: JSON.parse(cached), source: 'cache' };
-
-        var d = getSheet("DataMapel").getDataRange().getValues(), o = [];
-        for (var i = 1; i < d.length; i++) {
-            if (d[i][0]) o.push({
-                id_bab: String(d[i][0]).replace(/^'/, '').trim(),
-                nama_bab: String(d[i][1]).trim(),
-                elemen: String(d[i][2] || '').trim(),
-                tujuan: String(d[i][3] || '').trim(),
-                jml_tugas: String(d[i][4] || '1').trim(),
-                config_kolom: String(d[i][5]).trim(),
-                tingkat: String(d[i][6]).trim().toUpperCase(), // Force Uppercase X, XI, XII
-                semester: String(d[i][7] || '').trim()
+        var kurikulum = getKurikulumV2();
+        if (kurikulum.status !== 'success') return kurikulum;
+        var o = [];
+        (kurikulum.data || []).forEach(function (mapel) {
+            (mapel.bab || []).forEach(function (bab) {
+                var tugas = bab.tugas || [];
+                o.push({
+                    id_bab: bab.id_bab,
+                    id_mapel: mapel.id_mapel,
+                    nama_bab: bab.nama_bab,
+                    nama_mapel: mapel.nama_mapel,
+                    elemen: bab.elemen,
+                    tujuan: bab.tujuan,
+                    jml_tugas: String(tugas.length || 1),
+                    config_kolom: tugas.length ? tugas.map(function (t) { return t.nama_tugas + '=' + t.nilai_maks; }).join(',') : 'Nilai=100',
+                    tugas: tugas,
+                    tingkat: mapel.tingkat,
+                    semester: mapel.semester
+                });
             });
-        }
+        });
         cache.put("mapelData", JSON.stringify(o), 600); // Cache 10 menit
-        return { status: 'success', data: o, source: 'sheet' };
+        return { status: 'success', data: o, source: 'v2' };
     } catch (e) { return { status: 'error', message: e.toString() }; }
 }
 
 function simpanMapel(p) {
-    var s = getSheet("DataMapel"), d = s.getDataRange().getValues();
-    // Clear cache agar data baru langsung muncul
-    getCache().remove("mapelData");
-    getCache().remove("dashboardStats");
-    // Normalisasi input
-    var normId = p.id_bab ? String(p.id_bab).replace(/^'/, '').trim() : '';
-    var normTingkat = p.tingkat ? String(p.tingkat).trim().toUpperCase() : '';
-    var normSemester = p.semester ? String(p.semester).trim() : '';
+    try {
+        var namaMapel = String(p.nama_mapel || '').trim();
+        var namaBab = String(p.nama_bab || '').trim();
+        var config = parseTaskConfig(p.config_kolom);
+        if (!namaMapel || !namaBab) return { status: 'error', message: 'Nama mapel dan nama bab wajib diisi' };
+        if (!config) return { status: 'error', message: 'Format tugas harus seperti: Tugas 1=100, UH=100' };
 
-    if (normId) {
-        for (var i = 1; i < d.length; i++) {
-            if (String(d[i][0]).replace(/^'/, '').trim() == normId) {
-                s.getRange(i + 1, 2).setValue(p.nama_bab);
-                s.getRange(i + 1, 3).setValue(p.elemen || "-");
-                s.getRange(i + 1, 4).setValue(p.tujuan || "-");
-                s.getRange(i + 1, 5).setValue(p.jml_tugas || 1);
-                s.getRange(i + 1, 6).setValue(p.config_kolom);
-                s.getRange(i + 1, 7).setValue(normTingkat);
-                s.getRange(i + 1, 8).setValue(normSemester);
-                return { status: 'success', message: 'Updated' };
+        var v2BabMap = getV2BabMap();
+        var existingBab = p.id_bab ? v2BabMap[cleanV2Id(p.id_bab)] : null;
+
+        // Deteksi: apakah nama_mapel berubah ke mapel master yang sudah ada (bab akan berpindah mapel)?
+        var reparentWarning = null;
+        if (existingBab) {
+            var oldMapelId = existingBab.id_mapel;
+            var oldMapelNama = existingBab.nama_mapel;
+            var all = getKurikulumV2().data || [];
+            var matchOther = null;
+            for (var m = 0; m < all.length; m++) {
+                if (String(all[m].nama_mapel || '').trim().toUpperCase() === namaMapel.toUpperCase() &&
+                    String(all[m].tingkat || '').trim().toUpperCase() === String(p.tingkat || '').trim().toUpperCase() &&
+                    String(all[m].semester || '').trim() === String(p.semester || '').trim() &&
+                    all[m].id_mapel !== oldMapelId) {
+                    matchOther = all[m];
+                    break;
+                }
+            }
+            if (matchOther) {
+                reparentWarning = 'Bab "' + namaBab + '" dipindahkan dari mapel "' + oldMapelNama + '" ke mapel "' + matchOther.nama_mapel + '" yang sudah ada.';
             }
         }
-    }
-    var id = "MPL-" + Date.now();
-    s.appendRow(["'" + id, p.nama_bab, p.elemen || "-", p.tujuan || "-", p.jml_tugas || 1, p.config_kolom, normTingkat, normSemester]);
-    return { status: 'success', message: 'Created', id_bab: id };
+
+        var mapelId = getOrCreateMapelV2(p, existingBab);
+        if (typeof mapelId !== 'string') return mapelId;
+
+        var babResp = simpanBabV2({ id_bab: p.id_bab, id_mapel: mapelId, nama_bab: namaBab, elemen: p.elemen, tujuan: p.tujuan, urutan: p.urutan, status: 'AKTIF' });
+        if (babResp.status !== 'success') return babResp;
+        var babId = babResp.id_bab;
+        var currentTasks = getV2TasksForBab(babId), taskByName = {}, activeTaskIds = {};
+        currentTasks.forEach(function (task) { taskByName[task.nama_tugas.toUpperCase()] = task; });
+        for (var i = 0; i < config.length; i++) {
+            var existingTask = taskByName[config[i].nama_tugas.toUpperCase()];
+            var taskResp = simpanTugasV2({ id_tugas: existingTask ? existingTask.id_tugas : '', id_bab: babId, nama_tugas: config[i].nama_tugas, bobot: 0, nilai_maks: config[i].nilai_maks, status: 'AKTIF' });
+            if (taskResp.status !== 'success') return taskResp;
+            activeTaskIds[taskResp.id_tugas] = true;
+        }
+        currentTasks.forEach(function (task) {
+            if (!activeTaskIds[task.id_tugas]) hapusTugasV2({ id_tugas: task.id_tugas });
+        });
+        getCache().remove('mapelData');
+        getCache().remove('dashboardStats');
+        var result = { status: 'success', message: existingBab ? 'Updated' : 'Created', id_bab: babId, id_mapel: mapelId, version: 'v2' };
+        if (reparentWarning) result.warning = reparentWarning;
+        return result;
+    } catch (err) { return { status: 'error', message: 'Gagal menyimpan mapel V2: ' + err.toString() }; }
 }
 function hapusMapel(p) {
+    var v2BabMap = getV2BabMap(), babId = cleanV2Id(p.id_bab);
+    if (v2BabMap[babId]) {
+        var deleted = hapusBabV2({ id_bab: babId });
+        if (deleted.status === 'success') getCache().remove('mapelData');
+        return deleted;
+    }
+
     getCache().remove("mapelData");
     getCache().remove("dashboardStats");
     var s = getSheet("DataMapel"), d = s.getDataRange().getValues();
@@ -291,6 +588,41 @@ function clearCache(pattern) {
 
 // --- PENILAIAN (OPTIMIZED) ---
 
+function getV2NilaiDetailMap(idBab, tasks) {
+    var s = getV2Sheet('DataNilaiDetail');
+    var result = {};
+    if (!s || s.getLastRow() <= 1) return result;
+    var taskIds = {};
+    tasks.forEach(function (task) { taskIds[task.id_tugas] = true; });
+    s.getDataRange().getValues().slice(1).forEach(function (r) {
+        var taskId = cleanV2Id(r[1]);
+        if (!taskIds[taskId]) return;
+        var nis = cleanV2Id(r[0]);
+        if (!result[nis]) result[nis] = {};
+        result[nis][taskId] = r[2] === null || r[2] === undefined ? '' : String(r[2]).trim();
+    });
+    return result;
+}
+
+function getV2NilaiResponse(idBab, targetSiswa, tasks, normKelas) {
+    var detailMap = getV2NilaiDetailMap(idBab, tasks);
+    var totalMax = tasks.reduce(function (total, task) { return total + (parseFloat(task.nilai_maks) || 100); }, 0) || 100;
+    var dataNilai = [];
+    targetSiswa.forEach(function (siswa) {
+        var nis = cleanV2Id(siswa.nis), values = detailMap[nis];
+        if (!values) return;
+        var hasValue = false, total = 0;
+        var detail = tasks.map(function (task) {
+            var value = values[task.id_tugas] || '';
+            var number = parseFloat(value);
+            if (value !== '' && !isNaN(number)) { hasValue = true; total += Math.min(number, parseFloat(task.nilai_maks) || 100); }
+            return value;
+        });
+        dataNilai.push({ nis: nis, detail_nilai: detail.join(','), akhir: hasValue ? Math.round((total / totalMax) * 100) : 0 });
+    });
+    return { status: 'success', dataSiswa: targetSiswa, dataNilai: dataNilai, meta: { kelas: normKelas, id_bab: idBab, totalSiswa: targetSiswa.length, totalNilai: dataNilai.length, version: 'v2' } };
+}
+
 function getDataPenilaianOptimized(p) {
     if (!p.id_bab) return { status: 'error', message: 'ID Mapel required' };
 
@@ -299,6 +631,8 @@ function getDataPenilaianOptimized(p) {
     var allSiswa = getSiswa().data || [];
     // Filter siswa case-insensitive & trim untuk kelas - sinkron input nilai
     var targetSiswa = normKelas ? allSiswa.filter(function (s) { return String(s.kelas).trim().toUpperCase() === normKelas; }) : allSiswa;
+    var v2Bab = getV2BabMap()[normIdBab];
+    if (v2Bab) return getV2NilaiResponse(normIdBab, targetSiswa, v2Bab.bab.tugas || [], normKelas);
 
     var sheetNilai = getSheet("DataNilai");
     var lr = sheetNilai.getLastRow();
@@ -334,13 +668,35 @@ function getDataPenilaianOptimized(p) {
 }
 
 function simpanNilai(p) {
-    var sheet = getSheet("DataNilai");
-    if (sheet.getLastRow() == 0) sheet.appendRow(["NIS", "ID_BAB", "DETAIL_NILAI", "NILAI_AKHIR"]);
-
     if (!p.dataNilai || !Array.isArray(p.dataNilai)) return { status: 'error', message: 'Invalid data format' };
     if (!p.id_bab) return { status: 'error', message: 'ID Mapel required' };
 
     var normIdBab = String(p.id_bab).replace(/^'/, '').trim();
+    var v2Bab = getV2BabMap()[normIdBab];
+    if (v2Bab) {
+        var tasks = v2Bab.bab.tugas || [];
+        var detailSheet = ensureV2Sheet('DataNilaiDetail', ['NIS', 'ID_TUGAS', 'NILAI', 'UPDATED_AT']);
+        var detailRows = detailSheet.getDataRange().getValues(), rowMap = {}, now = new Date();
+        for (var v = 1; v < detailRows.length; v++) rowMap[cleanV2Id(detailRows[v][0]) + '_' + cleanV2Id(detailRows[v][1])] = v + 1;
+        p.dataNilai.forEach(function (item) {
+            var nis = cleanV2Id(item.nis), values = Array.isArray(item.nilai) ? item.nilai : [];
+            tasks.forEach(function (task, index) {
+                var key = nis + '_' + task.id_tugas, value = values[index] === null || values[index] === undefined ? '' : String(values[index]).trim();
+                if (value !== '') {
+                    var number = parseFloat(value), max = parseFloat(task.nilai_maks) || 100;
+                    value = isNaN(number) ? '' : String(Math.max(0, Math.min(number, max)));
+                }
+                var row = [nis, task.id_tugas, value, now];
+                if (rowMap[key]) detailSheet.getRange(rowMap[key], 1, 1, 4).setValues([row]);
+                else { detailSheet.appendRow(row); rowMap[key] = detailSheet.getLastRow(); }
+            });
+        });
+        return { status: 'success', message: 'Data nilai V2 tersimpan', saved: p.dataNilai.length, version: 'v2' };
+    }
+
+    var sheet = getSheet("DataNilai");
+    if (sheet.getLastRow() == 0) sheet.appendRow(["NIS", "ID_BAB", "DETAIL_NILAI", "NILAI_AKHIR"]);
+
     // Normalisasi nilai array: filter null, clamp, join
     var data = sheet.getDataRange().getValues();
     var mapRowIndex = {};
@@ -399,18 +755,31 @@ function getLegerKelasOptimized(p) {
         return mt === tingkat || mt === "-" || mt === "";
     });
 
-    // 3. Ambil Nilai
-    var s = getSheet("DataNilai");
-    var lr = s.getLastRow();
     var nilaiMap = {};
-
-    if (lr > 1) {
-        var raw = s.getRange(2, 1, lr - 1, 4).getValues();
-        for (var i = 0; i < raw.length; i++) {
-            var nis = String(raw[i][0]).replace(/^'/, '').trim();
-            var idBab = String(raw[i][1]).replace(/^'/, '').trim();
-            if (nis && idBab) {
-                nilaiMap[nis + "_" + idBab] = raw[i][3]; // Nilai Akhir
+    var isV2 = mapels.some(function (m) { return m.tugas; });
+    if (isV2) {
+        mapels.forEach(function (mapel) {
+            var tasks = mapel.tugas || [], detailMap = getV2NilaiDetailMap(mapel.id_bab, tasks);
+            var totalMax = tasks.reduce(function (total, task) { return total + (parseFloat(task.nilai_maks) || 100); }, 0) || 100;
+            siswas.forEach(function (siswa) {
+                var values = detailMap[cleanV2Id(siswa.nis)];
+                if (!values) return;
+                var total = 0, hasValue = false;
+                tasks.forEach(function (task) {
+                    var value = parseFloat(values[task.id_tugas]);
+                    if (!isNaN(value)) { total += Math.min(value, parseFloat(task.nilai_maks) || 100); hasValue = true; }
+                });
+                nilaiMap[cleanV2Id(siswa.nis) + '_' + mapel.id_bab] = hasValue ? Math.round((total / totalMax) * 100) : 0;
+            });
+        });
+    } else {
+        var s = getSheet("DataNilai"), lr = s.getLastRow();
+        if (lr > 1) {
+            var raw = s.getRange(2, 1, lr - 1, 4).getValues();
+            for (var i = 0; i < raw.length; i++) {
+                var nis = String(raw[i][0]).replace(/^'/, '').trim();
+                var idBab = String(raw[i][1]).replace(/^'/, '').trim();
+                if (nis && idBab) nilaiMap[nis + "_" + idBab] = raw[i][3];
             }
         }
     }
@@ -419,6 +788,19 @@ function getLegerKelasOptimized(p) {
 }
 
 function hapusNilai(p) {
+    var normNisV2 = p.nis ? String(p.nis).replace(/^'/, '').trim() : '';
+    var normIdBabV2 = p.id_bab ? String(p.id_bab).replace(/^'/, '').trim() : '';
+    var v2Bab = normIdBabV2 ? getV2BabMap()[normIdBabV2] : null;
+    if (v2Bab) {
+        var taskIds = (v2Bab.bab.tugas || []).map(function (task) { return task.id_tugas; });
+        var siswaV2 = getSiswa().data || [], nisListV2 = normNisV2 ? [normNisV2] : siswaV2.filter(function (s) { return !p.kelas || String(s.kelas).trim().toUpperCase() === String(p.kelas).trim().toUpperCase(); }).map(function (s) { return cleanV2Id(s.nis); });
+        var detailSheetV2 = getV2Sheet('DataNilaiDetail');
+        if (!detailSheetV2 || detailSheetV2.getLastRow() <= 1) return { status: 'success', message: 'Deleted 0 records', version: 'v2' };
+        var rowsV2 = detailSheetV2.getDataRange().getValues(), deletedV2 = 0;
+        for (var r = rowsV2.length - 1; r >= 1; r--) if (nisListV2.indexOf(cleanV2Id(rowsV2[r][0])) !== -1 && taskIds.indexOf(cleanV2Id(rowsV2[r][1])) !== -1) { detailSheetV2.deleteRow(r + 1); deletedV2++; }
+        return { status: 'success', message: 'Deleted ' + deletedV2 + ' records', version: 'v2' };
+    }
+
     var s = getSheet("DataNilai");
     var d = s.getDataRange().getValues();
     var toDelete = [];
@@ -474,14 +856,29 @@ function getAnalisisSikap(p) {
             return String(id).replace(/^'/, '').trim();
         }) : [];
 
-        var nilaiSheet = getSheet('DataNilai');
-        var nilaiRows = nilaiSheet.getLastRow() > 1 ? nilaiSheet.getRange(2, 1, nilaiSheet.getLastRow() - 1, 4).getValues() : [];
         var nilaiMap = {};
-        nilaiRows.forEach(function (row) {
-            var nis = String(row[0]).replace(/^'/, '').trim();
-            var idBab = String(row[1]).replace(/^'/, '').trim();
-            if (nis && idBab) nilaiMap[nis + '_' + idBab] = parseFloat(row[3]) || 0;
-        });
+        if (allMapel.some(function (m) { return m.tugas; })) {
+            allMapel.forEach(function (mapel) {
+                var tasks = mapel.tugas || [], detailMap = getV2NilaiDetailMap(mapel.id_bab, tasks);
+                var totalMax = tasks.reduce(function (total, task) { return total + (parseFloat(task.nilai_maks) || 100); }, 0) || 100;
+                Object.keys(detailMap).forEach(function (nis) {
+                    var total = 0, hasValue = false;
+                    tasks.forEach(function (task) {
+                        var value = parseFloat(detailMap[nis][task.id_tugas]);
+                        if (!isNaN(value)) { total += Math.min(value, parseFloat(task.nilai_maks) || 100); hasValue = true; }
+                    });
+                    if (hasValue) nilaiMap[nis + '_' + mapel.id_bab] = Math.round((total / totalMax) * 100);
+                });
+            });
+        } else {
+            var nilaiSheet = getSheet('DataNilai');
+            var nilaiRows = nilaiSheet.getLastRow() > 1 ? nilaiSheet.getRange(2, 1, nilaiSheet.getLastRow() - 1, 4).getValues() : [];
+            nilaiRows.forEach(function (row) {
+                var nis = String(row[0]).replace(/^'/, '').trim();
+                var idBab = String(row[1]).replace(/^'/, '').trim();
+                if (nis && idBab) nilaiMap[nis + '_' + idBab] = parseFloat(row[3]) || 0;
+            });
+        }
 
         var presensi = getPresensi({ forceRefresh: true });
         if (presensi.status !== 'success') return { status: 'error', message: 'Gagal mengambil presensi' };
@@ -928,6 +1325,18 @@ function simpanJadwal(p) {
             if (String(d[i][0]) == p.id) { s.getRange(i + 1, 2, 1, 4).setValues([[p.hari, p.jam, p.kelas, p.mapel]]); return { status: 'success', message: 'Updated' }; }
         }
     }
+    // Cegah duplikasi slot jadwal yang sama (hari, jam, kelas)
+    for (var i = 1; i < d.length; i++) {
+        var rowHari = String(d[i][1] || '').trim().toLowerCase();
+        var rowJam = String(d[i][2] || '').trim().toLowerCase();
+        var rowKelas = String(d[i][3] || '').trim().toUpperCase();
+        if (rowHari === String(p.hari || '').trim().toLowerCase() &&
+            rowJam === String(p.jam || '').trim().toLowerCase() &&
+            rowKelas === String(p.kelas || '').trim().toUpperCase()) {
+            s.getRange(i + 1, 2, 1, 4).setValues([[p.hari, p.jam, p.kelas, p.mapel]]);
+            return { status: 'success', message: 'Jadwal diperbarui' };
+        }
+    }
     var id = "JDW-" + Date.now(); s.appendRow(["'" + id, p.hari, p.jam, p.kelas, p.mapel]); return { status: 'success', message: 'Created' };
 }
 function hapusJadwal(p) {
@@ -945,7 +1354,7 @@ function getDashboardStats() {
         if (cached) return { status: 'success', data: JSON.parse(cached), source: 'cache' };
 
         var siswa = getSheet("DataSiswa").getLastRow() - 1;
-        var mapel = getSheet("DataMapel").getLastRow() - 1;
+        var mapel = (getMapel().data || []).length;
         var jurnal = getSheet("DataJurnal").getLastRow() - 1;
         var jadwal = getSheet("DataJadwal").getLastRow() - 1;
 
@@ -1724,6 +2133,19 @@ function clearPresensiCache() {
     }
 }
 
+// Helper normalisasi tanggal presensi ke format yyyy-MM-dd
+function formatPresensiDate(val) {
+    if (!val) return '';
+    if (val instanceof Date) {
+        return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    var s = String(val).trim();
+    if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) {
+        return s.substring(0, 10);
+    }
+    return s;
+}
+
 // Get presensi data by jurnal (for edit functionality)
 function getPresensiByJurnal(p) {
     try {
@@ -1734,11 +2156,28 @@ function getPresensiByJurnal(p) {
         var data = sheet.getDataRange().getValues();
         var results = [];
 
-        // Match by tanggal, kelas, mapel, guru, jam
+        var targetTgl = formatPresensiDate(p.tanggal);
+        var targetKelas = String(p.kelas || '').trim().toUpperCase();
+        var targetMapel = String(p.mapel || '').trim().toLowerCase();
+        var targetJam = String(p.jam || '').trim().toLowerCase();
+
+        // Match by tanggal, kelas, mapel, guru, jam (dengan normalisasi tanggal & teks)
         for (var i = 1; i < data.length; i++) {
-            var record = {
-                tanggal: data[i][1] || "",
-                nis: String(data[i][2] || ""),
+            var rowTgl = formatPresensiDate(data[i][1]);
+            var rowKelas = String(data[i][4] || '').trim().toUpperCase();
+            var rowMapel = String(data[i][5] || '').trim().toLowerCase();
+            var rowJam = String(data[i][7] || '').trim().toLowerCase();
+
+            // Match criteria (resilient)
+            if (targetTgl && rowTgl !== targetTgl) continue;
+            if (targetKelas && rowKelas !== targetKelas) continue;
+            if (targetMapel && rowMapel !== targetMapel) continue;
+            if (targetJam && rowJam !== targetJam) continue;
+
+            results.push({
+                id: String(data[i][0] || '').replace(/^'/, ''),
+                tanggal: rowTgl,
+                nis: String(data[i][2] || '').replace(/^'/, '').trim(),
                 nama: data[i][3] || "",
                 kelas: data[i][4] || "",
                 mapel: data[i][5] || "",
@@ -1746,16 +2185,7 @@ function getPresensiByJurnal(p) {
                 jam: data[i][7] || "",
                 status: data[i][8] || "",
                 keterangan: data[i][9] || ""
-            };
-
-            // Match criteria
-            if (p.tanggal && record.tanggal !== p.tanggal) continue;
-            if (p.kelas && record.kelas !== p.kelas) continue;
-            if (p.mapel && record.mapel !== p.mapel) continue;
-            if (p.guru && record.guru !== p.guru) continue;
-            if (p.jam && record.jam !== p.jam) continue;
-
-            results.push(record);
+            });
         }
 
         return { status: 'success', data: results };
@@ -1765,7 +2195,7 @@ function getPresensiByJurnal(p) {
     }
 }
 
-// Batch presensi operations (for bulk save from jurnal)
+// Batch presensi operations (for bulk save from jurnal) - DENGAN CEK EXISTING & DEDUPLIKASI
 function simpanBatchPresensi(jurnalData) {
     try {
         var sheet = getSheet("DataPresensi");
@@ -1782,50 +2212,92 @@ function simpanBatchPresensi(jurnalData) {
 
         if (jurnalData.absen && Array.isArray(jurnalData.absen)) {
             var existingData = sheet.getDataRange().getValues();
+            var targetTanggal = formatPresensiDate(jurnalData.tanggal);
+            var targetKelas = String(jurnalData.kelas || '').trim().toUpperCase();
+            var targetMapel = String(jurnalData.mapel || '').trim().toLowerCase();
+            var targetJam = String(jurnalData.jam || '').trim().toLowerCase();
+
+            // Multi-tier composite keys untuk matching existing:
+            // Tier 1: tanggal|nis|kelas|mapel|jam (exact full slot)
+            // Tier 2: tanggal|nis|kelas|jam (slot time)
+            // Tier 3: id (PRS-tanggal-nis)
+            // Tier 4: tanggal|nis|kelas (fallback jika jam kosong)
+            var fullKeyMap = {};
+            var slotKeyMap = {};
             var idMap = {};
+            var dateNisMap = {};
+
             for (var i = 1; i < existingData.length; i++) {
-                idMap[String(existingData[i][0])] = i + 1;
+                var rowId = String(existingData[i][0] || '').replace(/^'/, '').trim();
+                var rowTgl = formatPresensiDate(existingData[i][1]);
+                var rowNis = String(existingData[i][2] || '').replace(/^'/, '').trim();
+                var rowKls = String(existingData[i][4] || '').trim().toUpperCase();
+                var rowMap = String(existingData[i][5] || '').trim().toLowerCase();
+                var rowJm = String(existingData[i][7] || '').trim().toLowerCase();
+
+                var kFull = rowTgl + '|' + rowNis + '|' + rowKls + '|' + rowMap + '|' + rowJm;
+                var kSlot = rowTgl + '|' + rowNis + '|' + rowKls + '|' + rowJm;
+                var kDateNis = rowTgl + '|' + rowNis + '|' + rowKls;
+
+                fullKeyMap[kFull] = i + 1;
+                if (!slotKeyMap[kSlot]) slotKeyMap[kSlot] = i + 1;
+                if (!dateNisMap[kDateNis]) dateNisMap[kDateNis] = i + 1;
+                if (rowId) idMap[rowId] = i + 1;
             }
 
             var newRows = [];
 
             jurnalData.absen.forEach(function (student) {
-                var id = "PRS-" + jurnalData.tanggal + "-" + student.nis;
-                var rowData = [
-                    "'" + id,
-                    jurnalData.tanggal || "",
-                    student.nis || "",
-                    student.nama || "",
-                    jurnalData.kelas || "",
-                    jurnalData.mapel || "",
-                    jurnalData.guru || "",
-                    jurnalData.jam || "",
-                    student.status || "",
-                    student.keterangan || "",
-                    now,
-                    now
-                ];
+                var cleanNis = String(student.nis || '').replace(/^'/, '').trim();
+                var id = "PRS-" + targetTanggal + "-" + cleanNis;
 
-                var rowIdx = idMap[id];
+                var searchFull = targetTanggal + '|' + cleanNis + '|' + targetKelas + '|' + targetMapel + '|' + targetJam;
+                var searchSlot = targetTanggal + '|' + cleanNis + '|' + targetKelas + '|' + targetJam;
+                var searchDateNis = targetTanggal + '|' + cleanNis + '|' + targetKelas;
+
+                // Cek existing record secara bertingkat
+                var rowIdx = fullKeyMap[searchFull] || slotKeyMap[searchSlot] || idMap[id];
+                if (!rowIdx && !targetJam) {
+                    rowIdx = dateNisMap[searchDateNis];
+                }
 
                 if (rowIdx) {
-                    // Update
-                    sheet.getRange(rowIdx, 1, 1, 12).setValues([rowData]);
-                    results.push({
-                        nis: student.nis,
-                        nama: student.nama,
-                        status: student.status,
-                        action: 'updated'
-                    });
+                    // Update baris existing (cegah duplikat!)
+                    var origCreatedAt = (existingData[rowIdx - 1] && existingData[rowIdx - 1][10]) ? existingData[rowIdx - 1][10] : now;
+                    var updateData = [
+                        "'" + id,
+                        targetTanggal,
+                        student.nis || "",
+                        student.nama || "",
+                        jurnalData.kelas || "",
+                        jurnalData.mapel || "",
+                        jurnalData.guru || "",
+                        jurnalData.jam || "",
+                        student.status || "",
+                        student.keterangan || "",
+                        origCreatedAt,
+                        now
+                    ];
+                    sheet.getRange(rowIdx, 1, 1, 12).setValues([updateData]);
+                    results.push({ nis: student.nis, nama: student.nama, status: student.status, action: 'updated' });
                 } else {
-                    // Insert
-                    newRows.push(rowData);
-                    results.push({
-                        nis: student.nis,
-                        nama: student.nama,
-                        status: student.status,
-                        action: 'created'
-                    });
+                    // Baris baru
+                    var newRowData = [
+                        "'" + id,
+                        targetTanggal,
+                        student.nis || "",
+                        student.nama || "",
+                        jurnalData.kelas || "",
+                        jurnalData.mapel || "",
+                        jurnalData.guru || "",
+                        jurnalData.jam || "",
+                        student.status || "",
+                        student.keterangan || "",
+                        now,
+                        now
+                    ];
+                    newRows.push(newRowData);
+                    results.push({ nis: student.nis, nama: student.nama, status: student.status, action: 'created' });
                 }
             });
 
@@ -1849,6 +2321,45 @@ function simpanBatchPresensi(jurnalData) {
         return { status: 'error', message: 'Gagal simpan batch presensi: ' + err.toString() };
     }
 }
+
+// Fungsi bantu pembersihan duplikat di DataPresensi jika ada data historis lama
+function deduplicatePresensi() {
+    try {
+        var sheet = getSheet("DataPresensi");
+        var lr = sheet.getLastRow();
+        if (lr <= 1) return { status: 'success', removed: 0 };
+        var data = sheet.getDataRange().getValues();
+        var seen = {};
+        var rowsToDelete = [];
+
+        // Scan dari bawah ke atas agar row terbaru dipertahankan
+        for (var i = data.length - 1; i >= 1; i--) {
+            var rowTgl = formatPresensiDate(data[i][1]);
+            var rowNis = String(data[i][2] || '').replace(/^'/, '').trim();
+            var rowKls = String(data[i][4] || '').trim().toUpperCase();
+            var rowJam = String(data[i][7] || '').trim().toLowerCase();
+
+            if (!rowTgl || !rowNis) continue;
+            var key = rowTgl + '|' + rowNis + '|' + rowKls + '|' + rowJam;
+            if (seen[key]) {
+                rowsToDelete.push(i + 1);
+            } else {
+                seen[key] = true;
+            }
+        }
+
+        for (var d = 0; d < rowsToDelete.length; d++) {
+            sheet.deleteRow(rowsToDelete[d]);
+        }
+
+        clearPresensiCache();
+        return { status: 'success', removed: rowsToDelete.length, message: rowsToDelete.length + ' duplikat presensi berhasil dibersihkan.' };
+    } catch (e) {
+        return { status: 'error', message: e.toString() };
+    }
+}
+
+
 
 // --- AUDIT DATA CONSISTENCY ---
 function auditPresensiConsistency() {

@@ -359,7 +359,7 @@
             <!-- 1. DASHBOARD -->
             <div class="tab-pane fade show active" id="pills-home">
                 <div class="digital-clock">
-                    <button class="help-btn" data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp"><i
+                    <button class="help-btn" data-bs-toggle="offcanvas" data-bs-target="#offcanvasHelp" title="Panduan Penggunaan (?)" aria-label="Buka Panduan Penggunaan"><i
                             class="bi bi-question-circle"></i></button>
                     <div class="clock-time" id="realtime-clock">00:00</div>
                     <div class="clock-date" id="realtime-date">...</div>
@@ -570,9 +570,13 @@
                                 </select>
                             </div>
                             <div class="col-12">
-                                <select id="jurnal-mapel" class="form-select" required onchange="cekWaktuJadwal()">
-                                    <option value="">- Mapel -</option>
-                                </select>
+                                <div class="input-group">
+                                    <select id="jurnal-mapel" class="form-select" required onchange="cekWaktuJadwal()">
+                                        <option value="">- Mapel -</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary" onclick="quickAddJadwal()" title="Tambah jadwal cepat"><i class="bi bi-plus-lg"></i></button>
+                                </div>
+                                <small class="text-muted" style="font-size:11px;">Pilih master mapel (Matematika/Fisika). Bab dipilih di Input Nilai.</small>
                             </div>
                             <div class="col-12"><textarea id="jurnal-materi" class="form-control" rows="2"
                                     placeholder="Materi / Topik..." required></textarea></div>
@@ -1115,9 +1119,26 @@
                         <form id="formMapel" onsubmit="handleSimpanMapel(event)">
                             <input type="hidden" id="edit_id_bab">
                             <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold mb-1">
+                                        <i class="bi bi-book me-1"></i>Nama Mapel
+                                        <span class="badge bg-info text-white ms-1" id="mapel-status-badge" style="display:none;"></span>
+                                    </label>
+                                    <input type="text" 
+                                           id="nama_mapel"
+                                           list="mapel-suggestions"
+                                           class="form-control form-control-sm fw-bold"
+                                           placeholder="Ketik nama mapel, contoh: Matematika" 
+                                           oninput="checkExistingMapel(this.value)"
+                                           required>
+                                    <datalist id="mapel-suggestions"></datalist>
+                                    <small class="text-muted" id="mapel-hint">
+                                        💡 Ketik untuk mencari mapel yang sudah ada
+                                    </small>
+                                </div>
                                 <div class="col-12"><input type="text" id="nama_bab"
-                                        class="form-control form-control-sm fw-bold"
-                                        placeholder="Nama Mapel / Instrumen" required></div>
+                                        class="form-control form-control-sm"
+                                        placeholder="Nama Bab, contoh: Aljabar" required></div>
                                 <div class="col-6"><select id="tingkat_mapel" class="form-select form-select-sm">
                                         <option value="X">Kelas X</option>
                                         <option value="XI">Kelas XI</option>
@@ -1130,12 +1151,11 @@
                                 <div class="col-12"><input type="text" id="config_kolom"
                                         class="form-control form-control-sm font-monospace border-primary"
                                         placeholder="Format: Tugas=10, UH=100" required></div>
+                                <div class="col-12"><small class="text-muted">Tugas dipisahkan dengan koma. Setiap tugas wajib memakai format <code>Nama Tugas=Nilai Maksimum</code>. Contoh: <code>U1=5, Ulangan=100</code>.</small></div>
                                 <div class="col-12"><input type="text" id="elemen_mapel"
-                                        class="form-control form-control-sm" placeholder="Elemen"></div>
+                                        class="form-control form-control-sm" placeholder="Elemen, contoh: Bilangan"></div>
                                 <div class="col-12"><textarea id="tujuan_mapel" class="form-control form-control-sm"
-                                        placeholder="Tujuan" rows="2"></textarea></div>
-                                <div class="col-12"><input type="number" id="jml_tugas"
-                                        class="form-control form-control-sm" placeholder="Jml Tugas" value="1"></div>
+                                        placeholder="Tujuan pembelajaran" rows="2"></textarea></div>
                                 <div class="col-12 d-flex gap-2">
                                     <button type="button" class="btn btn-secondary btn-sm w-100 d-none"
                                         id="btnBatalEdit" onclick="resetFormMapel()">Batal (Mode Edit)</button>
@@ -1424,9 +1444,369 @@
             </div>
         </div>
     </div>
-    <div class="offcanvas offcanvas-bottom" tabindex="-1" id="offcanvasHelp">
-        <div class="offcanvas-body">
-            <p class="text-center text-muted">Panduan Penggunaan</p>
+    <div class="offcanvas offcanvas-bottom" tabindex="-1" id="offcanvasHelp" style="height: 85vh; max-height: 90vh;">
+        <div class="offcanvas-header border-bottom pb-2 pt-3 px-3">
+            <div class="d-flex align-items-center gap-2">
+                <div style="width:38px;height:38px;background:linear-gradient(135deg,#2563eb,#1e40af);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-book-half text-white" style="font-size:1.2rem;"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold mb-0" style="font-size:1rem;">Panduan Penggunaan</h6>
+                    <small class="text-muted" style="font-size:11px;">H2i Nilai v2 - Sistem Manajemen Kelas</small>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0" style="overflow-y:auto;">
+            <!-- Search & Filter -->
+            <div class="px-3 pt-3 pb-2 bg-light border-bottom sticky-top">
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" class="form-control" id="panduan-search" placeholder="Cari panduan (misal: jurnal, nilai, sikap, kkm)..." oninput="filterPanduan(this.value)">
+                    <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('panduan-search').value=''; filterPanduan('');"><i class="bi bi-x"></i></button>
+                </div>
+                <!-- Category Chips -->
+                <div class="d-flex gap-1 overflow-auto pb-1" style="white-space:nowrap;-webkit-overflow-scrolling:touch;">
+                    <button class="btn btn-xs btn-primary rounded-pill px-3 offcanvas-chip active" onclick="filterOffcanvasChip('all', this)">Semua</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('setup', this)">🚀 Setup</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('home', this)">🏠 Home</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('jurnal', this)">📖 Jurnal</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('input', this)">📝 Nilai</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('rekap', this)">📊 Leger</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('presensi', this)">👥 Presensi</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('sikap', this)">👤 Sikap</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('point', this)">⭐ Poin</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('atur', this)">⚙️ Atur</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-3 offcanvas-chip" onclick="filterOffcanvasChip('faq', this)">❓ FAQ</button>
+                </div>
+            </div>
+
+            <!-- Accordion Panduan -->
+            <div class="accordion accordion-flush" id="accordionPanduan">
+
+                <!-- MULAI CEPAT -->
+                <div class="accordion-item panduan-item" data-category="setup" data-keywords="mulai setup url koneksi database pertama kali">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-mulai">
+                            <i class="bi bi-rocket-takeoff-fill text-primary me-2"></i> Mulai Cepat (Setup Pertama)
+                        </button>
+                    </h2>
+                    <div id="panduan-mulai" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <div class="alert alert-primary py-2 small mb-3">
+                                <i class="bi bi-info-circle me-1"></i> Lakukan sekali saat pertama kali menggunakan aplikasi.
+                            </div>
+                            <ol class="ps-3 mb-0">
+                                <li class="mb-2"><strong>Buka Google Apps Script</strong> → klik <em>Deploy</em> → <em>New Deployment</em> → pilih type <em>Web App</em></li>
+                                <li class="mb-2">Atur akses ke <strong>"Anyone"</strong> → klik <em>Deploy</em> → salin URL yang muncul</li>
+                                <li class="mb-2">Di aplikasi ini, klik <strong>ikon gear (⚙️ Atur)</strong> di nav bawah → pilih <em>Koneksi Database</em></li>
+                                <li class="mb-2">Paste URL tadi → klik <strong>Hubungkan Database</strong></li>
+                                <li class="mb-2">Isi <strong>Profil Sekolah & Guru</strong> → nama sekolah, alamat, nama guru</li>
+                                <li class="mb-2">Masuk ke <strong>Pengaturan → Data Siswa</strong> dan tambahkan data siswa</li>
+                                <li class="mb-0">Masuk ke <strong>Pengaturan → Data Mapel</strong> dan tambahkan mata pelajaran</li>
+                            </ol>
+                            <div class="alert alert-success py-2 small mt-3 mb-0">
+                                <i class="bi bi-check-circle me-1"></i> Selesai! Aplikasi siap digunakan.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DASHBOARD -->
+                <div class="accordion-item panduan-item" data-category="home" data-keywords="dashboard home beranda jadwal kehadiran remedial">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-home">
+                            <i class="bi bi-house-door-fill text-info me-2"></i> Menu Home (Dashboard)
+                        </button>
+                    </h2>
+                    <div id="panduan-home" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Halaman utama yang menampilkan ringkasan harian.</p>
+                            <ul class="ps-3 mb-2">
+                                <li class="mb-1"><i class="bi bi-calendar-event text-primary me-1"></i> <strong>Jadwal Hari Ini</strong> — tampil otomatis dari data jadwal yang sudah diisi</li>
+                                <li class="mb-1"><i class="bi bi-check-circle text-success me-1"></i> <strong>Kehadiran Hari Ini</strong> — rekap Sakit / Izin / Alpha dari jurnal hari ini</li>
+                                <li class="mb-1"><i class="bi bi-bar-chart-fill text-danger me-1"></i> <strong>Analisis Remedial</strong> — grafik siswa tuntas vs remedial per mapel</li>
+                            </ul>
+                            <div class="bg-light rounded p-2 small">
+                                <i class="bi bi-lightbulb text-warning me-1"></i>
+                                Klik tombol <strong>"ISI JURNAL SEKARANG"</strong> untuk langsung ke halaman jurnal.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JURNAL -->
+                <div class="accordion-item panduan-item" data-category="jurnal" data-keywords="jurnal absensi presensi materi kelas mapel isi tambah edit hapus">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-jurnal">
+                            <i class="bi bi-journal-text text-warning me-2"></i> Menu Jurnal
+                        </button>
+                    </h2>
+                    <div id="panduan-jurnal" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Untuk mencatat kegiatan pembelajaran dan kehadiran siswa.</p>
+                            <strong class="d-block mb-2">📝 Cara Mengisi Jurnal:</strong>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-1">Pilih <strong>Tanggal</strong> (otomatis hari ini)</li>
+                                <li class="mb-1">Isi <strong>Nama Guru</strong></li>
+                                <li class="mb-1">Pilih <strong>Jam Pelajaran</strong> (dari jadwal atau manual)</li>
+                                <li class="mb-1">Pilih <strong>Kelas</strong> → daftar siswa otomatis muncul</li>
+                                <li class="mb-1">Pilih <strong>Mapel</strong> (nama mapel, bukan bab)</li>
+                                <li class="mb-1">Isi <strong>Materi / Topik</strong> yang diajarkan</li>
+                                <li class="mb-1">Tandai status kehadiran: <span class="badge bg-success">H</span> Hadir <span class="badge bg-warning text-dark">S</span> Sakit <span class="badge bg-info">I</span> Izin <span class="badge bg-danger">A</span> Alpha</li>
+                                <li class="mb-0">Klik <strong>Simpan Data</strong></li>
+                            </ol>
+                            <div class="bg-light rounded p-2 small mb-2">
+                                <i class="bi bi-plus-circle text-primary me-1"></i>
+                                <strong>Tambah Jadwal Cepat:</strong> Klik tombol <code>+</code> di sebelah dropdown Mapel untuk menambah jadwal tanpa pindah menu.
+                            </div>
+                            <div class="bg-light rounded p-2 small">
+                                <i class="bi bi-pencil text-warning me-1"></i>
+                                <strong>Edit Jurnal:</strong> Di daftar jurnal, klik tombol ✏️ untuk mengubah data yang sudah tersimpan.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INPUT NILAI -->
+                <div class="accordion-item panduan-item" data-category="input" data-keywords="input nilai tugas uh penilaian bab mapel simpan">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-input">
+                            <i class="bi bi-pencil-square text-success me-2"></i> Menu Input Nilai
+                        </button>
+                    </h2>
+                    <div id="panduan-input" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Untuk menginputkan nilai siswa per bab/tugas.</p>
+                            <strong class="d-block mb-2">📊 Cara Input Nilai:</strong>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-1">Pilih <strong>Kelas</strong></li>
+                                <li class="mb-1">Pilih <strong>Bab/Mapel</strong> (format: Matematika - Aljabar)</li>
+                                <li class="mb-1">Isi nilai setiap siswa pada kolom tugas yang tersedia</li>
+                                <li class="mb-1">Kolom <strong>NA</strong> (Nilai Akhir) dihitung otomatis</li>
+                                <li class="mb-0">Klik <strong>Simpan Semua Nilai</strong></li>
+                            </ol>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <div class="bg-success bg-opacity-10 rounded p-2 text-center small">
+                                        <span class="badge bg-success">≥ KKM</span><br>Tuntas
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-danger bg-opacity-10 rounded p-2 text-center small">
+                                        <span class="badge bg-danger">&lt; KKM</span><br>Remedial
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-light rounded p-2 small">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                Nilai maksimal per kolom ditampilkan di badge kuning. Nilai tidak bisa melebihi batas tersebut.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REKAP LEGER -->
+                <div class="accordion-item panduan-item" data-category="rekap" data-keywords="rekap leger nilai laporan pdf excel kelas">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-rekap">
+                            <i class="bi bi-file-earmark-bar-graph text-danger me-2"></i> Menu Rekap (Leger)
+                        </button>
+                    </h2>
+                    <div id="panduan-rekap" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Menampilkan rekapitulasi nilai semua mapel per kelas.</p>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-1">Pilih <strong>Kelas</strong> yang ingin dilihat</li>
+                                <li class="mb-1">Klik <strong>Tampilkan Leger</strong></li>
+                                <li class="mb-1">Tabel rekap nilai semua mapel muncul</li>
+                                <li class="mb-0">Klik <strong>PDF</strong> atau <strong>Excel</strong> untuk ekspor laporan</li>
+                            </ol>
+                            <div class="bg-light rounded p-2 small">
+                                <i class="bi bi-file-pdf text-danger me-1"></i> PDF: Format siap cetak dengan header sekolah<br>
+                                <i class="bi bi-file-earmark-excel text-success me-1"></i> Excel: Format spreadsheet untuk diedit lebih lanjut
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PRESENSI -->
+                <div class="accordion-item panduan-item" data-category="presensi" data-keywords="presensi rekap absensi hadir sakit izin alpha kelas pdf excel">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-presensi">
+                            <i class="bi bi-people-fill text-info me-2"></i> Menu Presensi
+                        </button>
+                    </h2>
+                    <div id="panduan-presensi" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Rekap kehadiran siswa dari data jurnal yang tersimpan.</p>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-1">Pilih <strong>Kelas</strong></li>
+                                <li class="mb-1">Pilih <strong>Tipe Rekap</strong>: Harian / Mingguan / Bulanan / Semester</li>
+                                <li class="mb-1">Isi filter tanggal/minggu/bulan yang sesuai</li>
+                                <li class="mb-1">Klik <strong>Tampilkan Rekap</strong></li>
+                                <li class="mb-0">Ekspor ke <strong>PDF</strong> atau <strong>Excel</strong></li>
+                            </ol>
+                            <div class="row g-2 small">
+                                <div class="col-3 text-center"><div class="badge bg-success w-100">H</div><div class="text-muted mt-1">Hadir</div></div>
+                                <div class="col-3 text-center"><div class="badge bg-warning text-dark w-100">S</div><div class="text-muted mt-1">Sakit</div></div>
+                                <div class="col-3 text-center"><div class="badge bg-info text-white w-100">I</div><div class="text-muted mt-1">Izin</div></div>
+                                <div class="col-3 text-center"><div class="badge bg-danger w-100">A</div><div class="text-muted mt-1">Alpha</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ANALISIS SIKAP -->
+                <div class="accordion-item panduan-item" data-category="sikap" data-keywords="sikap analisis skor pelanggaran disiplin karakter">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-sikap">
+                            <i class="bi bi-person-check-fill text-purple me-2" style="color:#7c3aed;"></i> Menu Analisis Sikap
+                        </button>
+                    </h2>
+                    <div id="panduan-sikap" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Menghitung skor sikap siswa berdasarkan nilai, kehadiran, dan disiplin.</p>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm table-bordered small mb-0">
+                                    <thead class="table-light"><tr><th>Komponen</th><th>Bobot</th></tr></thead>
+                                    <tbody>
+                                        <tr><td><i class="bi bi-book me-1 text-primary"></i> Rata-rata Nilai Mapel</td><td class="text-center fw-bold">50%</td></tr>
+                                        <tr><td><i class="bi bi-people me-1 text-success"></i> Kehadiran</td><td class="text-center fw-bold">30%</td></tr>
+                                        <tr><td><i class="bi bi-shield me-1 text-danger"></i> Disiplin (pengurang pelanggaran)</td><td class="text-center fw-bold">20%</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <ol class="ps-3 mb-0">
+                                <li class="mb-1">Pilih <strong>Kelas</strong> dan/atau <strong>Siswa</strong></li>
+                                <li class="mb-1">Centang <strong>Komponen Mapel</strong> yang ingin dimasukkan</li>
+                                <li class="mb-0">Klik <strong>Hitung Analisis Sikap</strong></li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- POIN PELANGGARAN -->
+                <div class="accordion-item panduan-item" data-category="point" data-keywords="poin pelanggaran siswa catat tambah">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-point">
+                            <i class="bi bi-star-fill text-warning me-2"></i> Menu Poin Pelanggaran
+                        </button>
+                    </h2>
+                    <div id="panduan-point" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <p class="text-muted mb-2">Mencatat poin pelanggaran tata tertib siswa.</p>
+                            <ol class="ps-3 mb-3">
+                                <li class="mb-1">Klik tombol <strong>+ Tambah Poin</strong></li>
+                                <li class="mb-1">Pilih <strong>Siswa</strong> dari dropdown</li>
+                                <li class="mb-1">Isi <strong>Jenis Pelanggaran</strong> dan <strong>Poin</strong></li>
+                                <li class="mb-0">Klik <strong>Simpan</strong></li>
+                            </ol>
+                            <div class="bg-light rounded p-2 small">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                Poin pelanggaran berpengaruh pada komponen <strong>Disiplin (20%)</strong> di Analisis Sikap.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PENGATURAN -->
+                <div class="accordion-item panduan-item" data-category="atur" data-keywords="pengaturan atur data siswa mapel jadwal bab tugas kolom konfigurasi">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-atur">
+                            <i class="bi bi-gear-fill text-secondary me-2"></i> Menu Pengaturan
+                        </button>
+                    </h2>
+                    <div id="panduan-atur" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1 pb-2">
+                            <div class="accordion" id="accordionAtur">
+                                <!-- Siswa -->
+                                <div class="card mb-2 border-0 bg-light rounded">
+                                    <div class="card-body p-2">
+                                        <strong><i class="bi bi-people me-1 text-primary"></i> Data Siswa</strong>
+                                        <ul class="ps-3 mt-1 mb-0 small">
+                                            <li>Tambah siswa satu per satu: isi NIS, Nama, Kelas → Simpan</li>
+                                            <li>Import massal: klik <strong>Import Bulk</strong> → salin data dari spreadsheet (Format: NIS | Nama | Kelas)</li>
+                                            <li>Edit: klik ikon ✏️ di daftar siswa</li>
+                                            <li>Hapus: klik ikon 🗑️</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <!-- Mapel -->
+                                <div class="card mb-2 border-0 bg-light rounded">
+                                    <div class="card-body p-2">
+                                        <strong><i class="bi bi-book me-1 text-success"></i> Data Mapel & Bab</strong>
+                                        <ul class="ps-3 mt-1 mb-0 small">
+                                            <li><strong>Nama Mapel:</strong> nama pelajaran, contoh: <em>Matematika</em></li>
+                                            <li><strong>Nama Bab:</strong> topik/bab, contoh: <em>Aljabar</em></li>
+                                            <li><strong>Tingkat:</strong> X / XI / XII</li>
+                                            <li><strong>Semester:</strong> Ganjil / Genap</li>
+                                            <li><strong>Tugas/Komponen:</strong> format <code>NamaTugas=NilaiMaks</code><br>Contoh: <code>Tugas 1=30,UH=70</code></li>
+                                        </ul>
+                                        <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                            Hapus Mapel/Bab akan menonaktifkan <strong>semua tugas terkait</strong> secara otomatis.
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Jadwal -->
+                                <div class="card mb-0 border-0 bg-light rounded">
+                                    <div class="card-body p-2">
+                                        <strong><i class="bi bi-calendar-week me-1 text-warning"></i> Data Jadwal</strong>
+                                        <ul class="ps-3 mt-1 mb-0 small">
+                                            <li>Isi <strong>Hari</strong>, <strong>Jam Mulai - Jam Selesai</strong>, <strong>Kelas</strong>, <strong>Mapel</strong></li>
+                                            <li>Jadwal digunakan untuk auto-detect jam di form jurnal</li>
+                                            <li>Bisa juga ditambah langsung dari halaman Jurnal via tombol <strong>+</strong></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="accordion-item panduan-item" data-category="faq" data-keywords="faq error masalah gagal koneksi cache reset">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-3 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#panduan-faq">
+                            <i class="bi bi-patch-question-fill text-danger me-2"></i> FAQ & Troubleshooting
+                        </button>
+                    </h2>
+                    <div id="panduan-faq" class="accordion-collapse collapse" data-bs-parent="#accordionPanduan">
+                        <div class="accordion-body small pt-1">
+                            <div class="mb-3">
+                                <strong class="d-block mb-1">❓ Data tidak muncul / loading terus?</strong>
+                                <p class="text-muted mb-1">Cek koneksi internet dan pastikan URL Apps Script sudah benar. Coba klik:</p>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="cekKoneksiDatabase()"><i class="bi bi-arrow-repeat me-1"></i>Test Koneksi</button>
+                            </div>
+                            <div class="mb-3">
+                                <strong class="d-block mb-1">❓ Data lama masih muncul (cache)?</strong>
+                                <p class="text-muted mb-1">Bersihkan cache aplikasi dari menu Pengaturan atau klik:</p>
+                                <button class="btn btn-sm btn-outline-warning" onclick="clearApplicationCache()"><i class="bi bi-trash me-1"></i>Bersihkan Cache</button>
+                            </div>
+                            <div class="mb-3">
+                                <strong class="d-block mb-1">❓ Dropdown mapel di jurnal menampilkan nama bab?</strong>
+                                <p class="text-muted mb-0">Pastikan field <em>Nama Mapel</em> sudah diisi saat menambah bab di Pengaturan → Data Mapel.</p>
+                            </div>
+                            <div class="mb-3">
+                                <strong class="d-block mb-1">❓ Presensi duplikat setelah edit jurnal?</strong>
+                                <p class="text-muted mb-0">Sistem sudah otomatis mencegah duplikat. Jika ada data lama yang duplikat, hubungi admin untuk menjalankan fungsi deduplicatePresensi.</p>
+                            </div>
+                            <div class="mb-0">
+                                <strong class="d-block mb-1">❓ Nilai leger berbeda dengan yang diinput?</strong>
+                                <p class="text-muted mb-0">Nilai akhir dihitung ulang dari detail tugas setiap kali leger dibuka. Pastikan konfigurasi nilai maks di Data Mapel sudah benar.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end accordion -->
+
+            <!-- Footer -->
+            <div class="px-3 py-3 border-top text-center">
+                <small class="text-muted">H2i Nilai v2 &nbsp;|&nbsp; <span id="panduan-versi">v2.6</span></small><br>
+                <small class="text-muted">Butuh bantuan lebih? Hubungi admin sistem.</small>
+            </div>
         </div>
     </div>
 
@@ -1471,6 +1851,18 @@
 
         let currentMapel = null; let filteredSiswa = [];
         let myChartInstance = null;
+
+        function formatMapelLabel(mapel) {
+            const namaMapel = String(mapel.nama_mapel || '').trim();
+            const namaBab = String(mapel.nama_bab || '').trim();
+            return namaMapel && namaBab ? `${namaMapel} - ${namaBab}` : (namaMapel || namaBab);
+        }
+
+        function resolveMapelLabel(id) {
+            const cleanId = String(id || '').replace(/^'/, '').trim();
+            const found = (mapelCache || []).find(m => String(m.id_bab).replace(/^'/, '').trim() === cleanId);
+            return found ? formatMapelLabel(found) : String(id || '');
+        }
 
         function cekKoneksiDatabase() {
             console.log('Checking database connection...');
@@ -2008,7 +2400,7 @@
         // --- JURNAL ---
         function loadJurnalMenu() {
             if (!document.getElementById('jurnal-tgl').value) document.getElementById('jurnal-tgl').valueAsDate = new Date();
-            loadDropdowns('jurnal-mapel');
+            updateMapelDropdowns();
             loadJurnal();
 
             // Add event listener for kelas change in jurnal
@@ -2089,11 +2481,11 @@
             const tanggalUntukJadwal = tanggalJurnal ? new Date(`${tanggalJurnal}T00:00:00`) : new Date();
             const hariIni = namaHari[tanggalUntukJadwal.getDay()];
 
-            // Cari jadwal yang cocok (case-insensitive)
+            // Cari jadwal yang cocok (case-insensitive & trimmed)
             const jadwalKetemu = jadwalCache.find(j =>
-                j.hari.trim().toLowerCase() === hariIni.toLowerCase() &&
-                j.kelas === kelas &&
-                j.mapel === mapel
+                String(j.hari || '').trim().toLowerCase() === hariIni.toLowerCase() &&
+                String(j.kelas || '').trim().toLowerCase() === kelas.trim().toLowerCase() &&
+                String(j.mapel || '').trim().toLowerCase() === mapel.trim().toLowerCase()
             );
 
             if (jadwalKetemu) {
@@ -2121,7 +2513,7 @@
                 // Tampilkan dropdown
                 selectJam.classList.remove('d-none');
                 selectJam.value = '';
-                jamStatus.innerHTML = '<span class="text-warning">⚠ Jadwal tidak ditemukan - Input manual</span>';
+                jamStatus.innerHTML = '<span class="text-warning">⚠ Jadwal tidak ditemukan &bull; <a href="javascript:void(0)" onclick="quickAddJadwal()" class="text-primary fw-bold text-decoration-underline"><i class="bi bi-plus-circle me-1"></i>Tambah Cepat</a></span>';
             }
         }
 
@@ -2259,7 +2651,7 @@
                     <div class="card-body p-2">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
-                                <div class="fw-bold text-primary">${escapeHtml(j.mapel)} - ${escapeHtml(j.kelas)}</div>
+                                <div class="fw-bold text-primary">${escapeHtml(resolveMapelLabel(j.mapel))} - ${escapeHtml(j.kelas)}</div>
                                 <div class="small text-muted">${escapeHtml(j.tanggal)} | ${escapeHtml(j.jam)}</div>
                                 <div class="small">${escapeHtml(j.guru)}</div>
                                 <div class="small">${escapeHtml(j.materi)}</div>
@@ -2450,7 +2842,7 @@
                 });
             }
             let opts = '<option value="">- Pilih Mapel -</option>';
-            filtered.forEach(m => { opts += `<option value="${m.id_bab}">${m.nama_bab} (${m.tingkat||'-'} Sem ${m.semester||'-'})</option>`; });
+            filtered.forEach(m => { opts += `<option value="${m.id_bab}">${formatMapelLabel(m)} (${m.tingkat||'-'} Sem ${m.semester||'-'})</option>`; });
             const el = document.getElementById('pilih-mapel');
             if (el) {
                 const cur = el.value;
@@ -2492,8 +2884,8 @@
                 <button onclick="hapusNilaiPerMapel()" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Hapus Semua Nilai Mapel</button>
             </div>
             <div class="d-flex gap-2">
-                <button onclick="exportInputPDF('Laporan_${k}_${currentMapel.nama_bab}')" class="btn btn-sm btn-dark"><i class="bi bi-file-pdf"></i> PDF</button>
-                <button onclick="exportInputExcel('Laporan_${k}_${currentMapel.nama_bab}')" class="btn btn-sm btn-success"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                <button onclick="exportInputPDF('Laporan_${k}_${formatMapelLabel(currentMapel)}')" class="btn btn-sm btn-dark"><i class="bi bi-file-pdf"></i> PDF</button>
+                <button onclick="exportInputExcel('Laporan_${k}_${formatMapelLabel(currentMapel)}')" class="btn btn-sm btn-success"><i class="bi bi-file-earmark-excel"></i> Excel</button>
             </div>
         </div>`;
 
@@ -2934,7 +3326,7 @@
 
                     if (mapels && Array.isArray(mapels)) {
                         mapels.forEach(m => {
-                            th += `<th style="background: #343a40; color: white; min-width: 100px;">${m.nama_bab}</th>`;
+                            th += `<th style="background: #343a40; color: white; min-width: 100px;">${formatMapelLabel(m)}</th>`;
                         });
                     }
 
@@ -3010,7 +3402,19 @@
         }
 
         // --- UTILS ---
-        function loadDropdowns(id) { let h = '<option value="">- Mapel -</option>'; mapelCache.forEach(x => h += `<option value="${x.nama_bab}">${x.nama_bab}</option>`); if (document.getElementById(id)) document.getElementById(id).innerHTML = h; }
+        function loadDropdowns(id) {
+            let h = '<option value="">- Mapel -</option>';
+            const uniqueMapels = new Set();
+            (mapelCache || []).forEach(x => {
+                let name = (x.nama_mapel || '').trim();
+                if (!name && x.nama_bab) name = x.nama_bab.split(' - ')[0].trim();
+                if (name) uniqueMapels.add(name);
+            });
+            Array.from(uniqueMapels).sort().forEach(nama => {
+                h += `<option value="${escapeHtml(nama)}">${escapeHtml(nama)}</option>`;
+            });
+            if (document.getElementById(id)) document.getElementById(id).innerHTML = h;
+        }
         function populateKelasFromDB(data) {
             if (!data || !Array.isArray(data)) return;
 
@@ -3053,13 +3457,104 @@
             updateSikapSiswa();
         }
         function switchTab(t) {
-            document.querySelectorAll('.tab-pane').forEach(e => e.classList.remove('show', 'active')); document.getElementById('pills-' + t).classList.add('show', 'active'); document.querySelectorAll('.nav-link-custom').forEach(e => e.classList.remove('active')); document.getElementById('nav-' + t).classList.add('active'); if (t === 'home') initDashboard(); if (t === 'jurnal') loadJurnalMenu();
+            document.querySelectorAll('.tab-pane').forEach(e => e.classList.remove('show', 'active')); 
+            const targetPane = document.getElementById('pills-' + t);
+            if (targetPane) targetPane.classList.add('show', 'active'); 
+            document.querySelectorAll('.nav-link-custom').forEach(e => e.classList.remove('active')); 
+            const targetNav = document.getElementById('nav-' + t);
+            if (targetNav) targetNav.classList.add('active'); 
+            if (t === 'home') initDashboard(); 
+            if (t === 'jurnal') loadJurnalMenu();
             if (t === 'point') loadPointMenu();
             if (t === 'sikap') initAnalisisSikap();
-            if (t === 'input') initInputMenu(); if (t === 'pengaturan') closeSubMenu();
+            if (t === 'input') initInputMenu(); 
+            if (t === 'pengaturan') closeSubMenu();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        function openSubMenu(id) { document.getElementById('settings-main-menu').classList.add('d-none'); document.getElementById('sub-' + id).classList.remove('d-none'); if (id === 'siswa') loadSiswaMaster(); if (id === 'mapel') loadMapel(); if (id === 'jadwal') { loadJadwal(); setTimeout(() => { document.getElementById('jadwal-kelas').onchange = function () { updateMapelDropdowns(); }; }, 500); } }
-        function closeSubMenu() { document.querySelectorAll('[id^="sub-"]').forEach(e => e.classList.add('d-none')); document.getElementById('settings-main-menu').classList.remove('d-none'); }
+
+        function bukaPanduan() {
+            switchTab('pengaturan');
+            openSubMenu('panduan');
+        }
+
+        function openSubMenu(id) { 
+            document.getElementById('settings-main-menu').classList.add('d-none'); 
+            document.querySelectorAll('[id^="sub-"]').forEach(e => e.classList.add('d-none')); 
+            const subEl = document.getElementById('sub-' + id);
+            if (subEl) {
+                subEl.classList.remove('d-none');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            if (id === 'siswa') loadSiswaMaster(); 
+            if (id === 'mapel') loadMapel(); 
+            if (id === 'jadwal') { 
+                loadJadwal(); 
+                setTimeout(() => { 
+                    const jk = document.getElementById('jadwal-kelas');
+                    if (jk) jk.onchange = function () { updateMapelDropdowns(); }; 
+                }, 500); 
+            } 
+        }
+
+        function closeSubMenu() { 
+            document.querySelectorAll('[id^="sub-"]').forEach(e => e.classList.add('d-none')); 
+            document.getElementById('settings-main-menu').classList.remove('d-none'); 
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- FILTER OFFCANVAS PANDUAN (?) ---
+        function filterOffcanvasChip(cat, btn) {
+            document.querySelectorAll('.offcanvas-chip').forEach(b => {
+                b.classList.remove('btn-primary', 'active');
+                b.classList.add('btn-outline-secondary');
+            });
+            if (btn) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-primary', 'active');
+            }
+            const items = document.querySelectorAll('#accordionPanduan .panduan-item');
+            items.forEach(item => {
+                const itemCat = item.getAttribute('data-category') || '';
+                const isMatch = (cat === 'all' || itemCat === cat);
+                item.style.display = isMatch ? '' : 'none';
+                if (cat !== 'all' && isMatch) {
+                    const collapseEl = item.querySelector('.accordion-collapse');
+                    if (collapseEl) {
+                        new bootstrap.Collapse(collapseEl, { toggle: false }).show();
+                    }
+                }
+            });
+            const searchInput = document.getElementById('panduan-search');
+            if (searchInput) searchInput.value = '';
+        }
+
+        function filterPanduan(query) {
+            const q = (query || '').toLowerCase().trim();
+            if (q) {
+                document.querySelectorAll('.offcanvas-chip').forEach(b => {
+                    b.classList.remove('btn-primary', 'active');
+                    b.classList.add('btn-outline-secondary');
+                });
+                const firstChip = document.querySelector('.offcanvas-chip');
+                if (firstChip) {
+                    firstChip.classList.remove('btn-outline-secondary');
+                    firstChip.classList.add('btn-primary', 'active');
+                }
+            }
+            const items = document.querySelectorAll('#accordionPanduan .panduan-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                const keywords = item.getAttribute('data-keywords') || '';
+                const isMatch = !q || text.includes(q) || keywords.toLowerCase().includes(q);
+                item.style.display = isMatch ? '' : 'none';
+                if (q && isMatch) {
+                    const collapseEl = item.querySelector('.accordion-collapse');
+                    if (collapseEl) {
+                        new bootstrap.Collapse(collapseEl, { toggle: false }).show();
+                    }
+                }
+            });
+        }
 
         // ============================================================
         //  MENU POINT: CRUD + EXPORT (v1.0 - FULL IMPLEMENTATION)
@@ -4369,8 +4864,7 @@
                     mapelCache = res.data || [];
                     localStorage.setItem('cache_mapel', JSON.stringify(mapelCache));
                     console.log("Mapel loaded successfully:", mapelCache.length, "records");
-                    renderMapelTable();
-                    updateMapelDropdowns();
+                    onMapelLoadSuccess();  // Call new unified handler
                 } else {
                     console.error("Failed to load mapel:", res.message);
                     // Fallback to cache if available
@@ -4409,39 +4903,88 @@
             let h = '';
 
             if (!mapelCache || mapelCache.length === 0) {
-                h = '<div class="text-center text-muted p-3">Belum ada data mapel. Silakan tambah.</div>';
-            } else {
-                // Filter mapel by kelas if filter is selected
-                let filteredMapel = mapelCache;
-                if (filterKelas) {
-                    filteredMapel = mapelCache.filter(m => m.tingkat === filterKelas);
-                }
-
-                if (filteredMapel.length === 0) {
-                    h = `<div class="text-center text-muted p-3">Tidak ada data mapel untuk kelas ${filterKelas}.</div>`;
-                } else {
-                    filteredMapel.forEach(m => {
-                        let dataJson = encodeURIComponent(JSON.stringify(m));
-                        h += `<div class="card p-2 mb-2 d-flex justify-content-between flex-row align-items-center">
-                        <div class="flex-grow-1">
-                            <strong>${m.nama_bab}</strong>
-                            <br>
-                            <small class="text-muted">${m.tingkat} (Sem ${m.semester}) - ${m.config_kolom}</small>
-                            <br>
-                            <small class="text-muted">Elemen: ${m.elemen || '-'} | Tujuan: ${m.tujuan || '-'} | Tugas: ${m.jml_tugas || 1}</small>
-                        </div>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-warning text-white" onclick="editMapel('${dataJson}')">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="hapusMapel('${m.id_bab}')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>`;
-                    });
-                }
+                h = '<div class="alert alert-info text-center"><i class="bi bi-info-circle me-2"></i>Belum ada data mapel. Silakan tambah.</div>';
+                document.getElementById('listMapel').innerHTML = h;
+                return;
             }
+
+            // Filter mapel by kelas if filter is selected
+            let filteredMapel = mapelCache;
+            if (filterKelas) {
+                filteredMapel = mapelCache.filter(m => m.tingkat === filterKelas);
+            }
+
+            if (filteredMapel.length === 0) {
+                h = `<div class="alert alert-warning text-center"><i class="bi bi-exclamation-triangle me-2"></i>Tidak ada data mapel untuk kelas ${filterKelas}.</div>`;
+                document.getElementById('listMapel').innerHTML = h;
+                return;
+            }
+
+            // Group by master mapel (nama + tingkat + semester) agar XI dan XII tidak tercampur
+            const groupedByMapel = {};
+            filteredMapel.forEach(m => {
+                const key = `${m.nama_mapel || 'Mapel Tanpa Nama'}|${m.tingkat || '-'}|${m.semester || '-'}`;
+                if (!groupedByMapel[key]) groupedByMapel[key] = [];
+                groupedByMapel[key].push(m);
+            });
+
+            // Render grouped mapel
+            Object.keys(groupedByMapel).sort().forEach(key => {
+                const babs = groupedByMapel[key];
+                const firstBab = babs[0];
+                const mapelName = firstBab.nama_mapel || 'Mapel Tanpa Nama';
+                
+                h += `
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-book me-2"></i>${mapelName}
+                            </h6>
+                            <small>Tingkat: ${firstBab.tingkat} | Semester: ${firstBab.semester}</small>
+                        </div>
+                        <div class="badge bg-light text-dark">${babs.length} Bab</div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">`;
+                
+                babs.forEach((bab, idx) => {
+                    const dataJson = encodeURIComponent(JSON.stringify(bab));
+                    const tugasInfo = bab.config_kolom || 'Tidak ada tugas';
+                    const tugasCount = bab.config_kolom ? bab.config_kolom.split(',').length : 0;
+                    
+                    h += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <span class="badge bg-secondary me-2">${idx + 1}</span>
+                                        <strong>${bab.nama_bab}</strong>
+                                        <span class="badge bg-info ms-2">${tugasCount} Tugas</span>
+                                    </div>
+                                    <small class="text-muted d-block">
+                                        <i class="bi bi-list-check me-1"></i>Tugas: ${tugasInfo}
+                                    </small>
+                                    ${bab.elemen && bab.elemen !== '-' ? `<small class="text-muted d-block"><i class="bi bi-tag me-1"></i>Elemen: ${bab.elemen}</small>` : ''}
+                                    ${bab.tujuan && bab.tujuan !== '-' ? `<small class="text-muted d-block"><i class="bi bi-bullseye me-1"></i>Tujuan: ${bab.tujuan}</small>` : ''}
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-warning" onclick="editMapel('${dataJson}')" title="Edit Bab">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="hapusMapel('${bab.id_bab}')" title="Hapus Bab">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+                
+                h += `
+                        </div>
+                    </div>
+                </div>`;
+            });
 
             document.getElementById('listMapel').innerHTML = h;
         }
@@ -4513,44 +5056,254 @@
                 console.log(`Filtered mapels for ${currentKelas}:`, filteredMapel.length);
             }
 
-            // Update dropdowns
-            let opts = '<option value="">- Pilih Mapel -</option>';
+            // Update dropdowns: Input Nilai pakai bab-spesifik, Jurnal/Jadwal pakai master mapel
+            let optsBab = '<option value="">- Pilih Mapel -</option>';
             let dashOpts = '<option value="">- Pilih Mapel Analisis -</option>';
-
             if (filteredMapel) {
                 filteredMapel.forEach(m => {
-                    // Value pakai ID_BAB untuk backend yang benar
-                    // Display pakai Nama Mapel untuk user-friendly
-                    opts += `<option value="${m.id_bab}">${m.nama_bab}</option>`;
-                    dashOpts += `<option value="${m.id_bab}">${m.nama_bab}</option>`;
+                    optsBab += `<option value="${m.id_bab}">${formatMapelLabel(m)}</option>`;
+                    dashOpts += `<option value="${m.id_bab}">${formatMapelLabel(m)}</option>`;
+                });
+            }
+            // Build distinct master mapel untuk Jurnal/Jadwal: HANYA nama mapel murni (Matematika, Fisika, dll)
+            const mapelNames = new Set();
+            const sourceMapel = (filteredMapel && filteredMapel.length > 0) ? filteredMapel : (mapelCache || []);
+            sourceMapel.forEach(m => {
+                let name = (m.nama_mapel || '').trim();
+                if (!name && m.nama_bab) {
+                    name = m.nama_bab.split(' - ')[0].trim();
+                }
+                if (name) mapelNames.add(name);
+            });
+
+            // Fallback ke mapelCache jika kosong
+            if (mapelNames.size === 0 && mapelCache && mapelCache.length > 0) {
+                mapelCache.forEach(m => {
+                    let name = (m.nama_mapel || m.nama_bab || '').trim();
+                    if (name) mapelNames.add(name);
                 });
             }
 
-            console.log("Final options HTML length:", opts.length);
+            let optsMaster = '<option value="">- Pilih Mapel -</option>';
+            Array.from(mapelNames).sort().forEach(nama => {
+                optsMaster += `<option value="${escapeHtml(nama)}">${escapeHtml(nama)}</option>`;
+            });
 
-            // Update dropdown elements
+            console.log("Final options bab:", optsBab.length, " master:", optsMaster.length, "mapelNames count:", mapelNames.size);
             if (document.getElementById('jurnal-mapel')) {
-                document.getElementById('jurnal-mapel').innerHTML = opts;
-                console.log("Updated jurnal-mapel dropdown");
+                const prevVal = document.getElementById('jurnal-mapel').value;
+                document.getElementById('jurnal-mapel').innerHTML = optsMaster;
+                if (prevVal) document.getElementById('jurnal-mapel').value = prevVal;
+                console.log("Updated jurnal-mapel dropdown (nama_mapel only)");
             }
             if (document.getElementById('jadwal-mapel')) {
-                document.getElementById('jadwal-mapel').innerHTML = opts;
-                console.log("Updated jadwal-mapel dropdown");
+                const prevVal = document.getElementById('jadwal-mapel').value;
+                document.getElementById('jadwal-mapel').innerHTML = optsMaster;
+                if (prevVal) document.getElementById('jadwal-mapel').value = prevVal;
+                console.log("Updated jadwal-mapel dropdown (nama_mapel only)");
             }
             if (document.getElementById('dashboard-mapel-select')) {
                 document.getElementById('dashboard-mapel-select').innerHTML = dashOpts;
                 console.log("Updated dashboard-mapel-select dropdown");
             }
-            // PERBAIKAN: Update pilih-mapel di Input Nilai juga!
             if (document.getElementById('pilih-mapel')) {
-                document.getElementById('pilih-mapel').innerHTML = opts;
-                console.log("Updated pilih-mapel dropdown");
+                document.getElementById('pilih-mapel').innerHTML = optsBab;
+                console.log("Updated pilih-mapel dropdown (bab)");
             }
         }
-        function editMapel(json) { let d = JSON.parse(decodeURIComponent(json)); document.getElementById('edit_id_bab').value = d.id_bab; document.getElementById('nama_bab').value = d.nama_bab; document.getElementById('tingkat_mapel').value = d.tingkat; document.getElementById('semester_mapel').value = d.semester; document.getElementById('config_kolom').value = d.config_kolom; document.getElementById('elemen_mapel').value = d.elemen || ''; document.getElementById('tujuan_mapel').value = d.tujuan || ''; document.getElementById('jml_tugas').value = d.jml_tugas || 1; document.getElementById('btnSimpanMapel').innerText = "Update"; document.getElementById('btnBatalEdit').classList.remove('d-none'); }
-        function resetFormMapel() { document.getElementById('formMapel').reset(); document.getElementById('edit_id_bab').value = ''; document.getElementById('btnSimpanMapel').innerText = "Simpan"; document.getElementById('btnBatalEdit').classList.add('d-none'); }
-        function handleSimpanMapel(e) { e.preventDefault(); apiRequest({ action: 'simpanMapel', id_bab: document.getElementById('edit_id_bab').value, nama_bab: document.getElementById('nama_bab').value, config_kolom: document.getElementById('config_kolom').value, elemen: document.getElementById('elemen_mapel').value, tujuan: document.getElementById('tujuan_mapel').value, jml_tugas: document.getElementById('jml_tugas').value, tingkat: document.getElementById('tingkat_mapel').value, semester: document.getElementById('semester_mapel').value }).then(res => { if (res.status === 'success') { Swal.fire('Berhasil', 'Data mapel berhasil disimpan', 'success'); loadMapel(); resetFormMapel(); } else { Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error'); } }); }
-        function hapusMapel(id) { if (confirm('Hapus data mapel ini?')) { apiRequest({ action: 'hapusMapel', id_bab: id }).then(res => { if (res.status === 'success') { Swal.fire('Berhasil', 'Data mapel berhasil dihapus', 'success'); loadMapel(); } else { Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error'); } }); } }
+        function editMapel(json) { let d = JSON.parse(decodeURIComponent(json)); document.getElementById('edit_id_bab').value = d.id_bab; document.getElementById('nama_mapel').value = d.nama_mapel || ''; document.getElementById('nama_bab').value = d.nama_bab; document.getElementById('tingkat_mapel').value = d.tingkat; document.getElementById('semester_mapel').value = d.semester; document.getElementById('config_kolom').value = d.config_kolom; document.getElementById('elemen_mapel').value = d.elemen || ''; document.getElementById('tujuan_mapel').value = d.tujuan || ''; document.getElementById('btnSimpanMapel').innerText = "Update"; document.getElementById('btnBatalEdit').classList.remove('d-none'); }
+        function resetFormMapel() { 
+            document.getElementById('formMapel').reset(); 
+            document.getElementById('edit_id_bab').value = ''; 
+            document.getElementById('btnSimpanMapel').innerText = "Simpan"; 
+            document.getElementById('btnBatalEdit').classList.add('d-none'); 
+            document.getElementById('mapel-status-badge').style.display = 'none';
+            document.getElementById('mapel-hint').innerHTML = '💡 Ketik untuk mencari mapel yang sudah ada';
+            document.getElementById('mapel-hint').className = 'text-muted';
+        }
+        
+        // Smart Mapel Checker - Detect existing mapel
+        let mapelCheckTimeout = null;
+        function checkExistingMapel(value) {
+            clearTimeout(mapelCheckTimeout);
+            
+            const badge = document.getElementById('mapel-status-badge');
+            const hint = document.getElementById('mapel-hint');
+            const tingkatSelect = document.getElementById('tingkat_mapel');
+            const semesterSelect = document.getElementById('semester_mapel');
+            
+            if (!value || value.length < 2) {
+                badge.style.display = 'none';
+                hint.innerHTML = '💡 Ketik untuk mencari mapel yang sudah ada';
+                hint.className = 'text-muted';
+                return;
+            }
+            
+            mapelCheckTimeout = setTimeout(() => {
+                const normalizedValue = value.trim().toLowerCase();
+                const tingkatVal = tingkatSelect.value;
+                const semesterVal = semesterSelect.value;
+                const existingExact = mapelCache.filter(m =>
+                    (m.nama_mapel || '').toLowerCase() === normalizedValue &&
+                    String(m.tingkat || '').toUpperCase() === tingkatVal &&
+                    String(m.semester || '').trim() === semesterVal
+                );
+                const existingAny = mapelCache.filter(m => (m.nama_mapel || '').toLowerCase() === normalizedValue);
+                if (existingExact.length > 0) {
+                    badge.innerHTML = `<i class="bi bi-check-circle me-1"></i>Sudah ada (${existingExact.length} bab) di ${tingkatVal} Sem ${semesterVal}`;
+                    badge.className = 'badge bg-success text-white ms-1';
+                    badge.style.display = 'inline-block';
+                    hint.innerHTML = `<i class="bi bi-info-circle me-1"></i> Mapel "<strong>${existingExact[0].nama_mapel}</strong>" sudah ada untuk tingkat/semester ini. Bab baru akan ditambahkan ke mapel tersebut.`;
+                    hint.className = 'text-success small';
+                } else if (existingAny.length > 0) {
+                    badge.innerHTML = `<i class="bi bi-exclamation-circle me-1"></i>Ada di tingkat lain`;
+                    badge.className = 'badge bg-warning text-dark ms-1';
+                    badge.style.display = 'inline-block';
+                    hint.innerHTML = `<i class="bi bi-lightbulb me-1"></i> Mapel "<strong>${existingAny[0].nama_mapel}</strong>" ada di tingkat lain. Jika simpan dengan ${tingkatVal} Sem ${semesterVal}, master baru akan dibuat untuk tingkat/semester tersebut.`;
+                    hint.className = 'text-warning small';
+                } else {
+                    badge.innerHTML = `<i class="bi bi-plus-circle me-1"></i>Baru`;
+                    badge.className = 'badge bg-primary text-white ms-1';
+                    badge.style.display = 'inline-block';
+                    hint.innerHTML = `<i class="bi bi-sparkles me-1"></i> Mapel baru akan dibuat dengan nama "<strong>${value}</strong>" untuk ${tingkatVal} Sem ${semesterVal}.`;
+                    hint.className = 'text-primary small';
+                }
+            }, 300);
+        }
+        
+        // Populate mapel suggestions from cache
+        function populateMapelSuggestions() {
+            const datalist = document.getElementById('mapel-suggestions');
+            if (!datalist) return;
+            
+            // Get unique mapel names
+            const uniqueMapels = [...new Set(mapelCache.map(m => m.nama_mapel))];
+            
+            datalist.innerHTML = uniqueMapels
+                .filter(name => name && name.trim())
+                .sort()
+                .map(name => `<option value="${name}">`)
+                .join('');
+        }
+        
+        // Call this after loadMapel success
+        function onMapelLoadSuccess() {
+            populateMapelSuggestions();
+            renderMapelTable();
+            updateMapelDropdowns();
+        }
+        async function handleSimpanMapel(e) {
+            e.preventDefault();
+            
+            const namaMapel = document.getElementById('nama_mapel').value.trim();
+            const namaBab = document.getElementById('nama_bab').value.trim();
+            const configKolom = document.getElementById('config_kolom').value.trim();
+            const tingkat = document.getElementById('tingkat_mapel').value;
+            const semester = document.getElementById('semester_mapel').value;
+            const elemen = document.getElementById('elemen_mapel').value.trim();
+            const tujuan = document.getElementById('tujuan_mapel').value.trim();
+            const editIdBab = document.getElementById('edit_id_bab').value;
+            
+            // Validation
+            if (!namaMapel || !namaBab) {
+                return Swal.fire('Data belum lengkap', 'Nama mapel dan nama bab wajib diisi.', 'warning');
+            }
+            
+            // Validate config_kolom format
+            const formatTugasValid = configKolom.split(',').every(item => /^[^=,]+\s*=\s*\d+(?:\.\d+)?\s*$/.test(item));
+            if (!formatTugasValid) {
+                return Swal.fire({
+                    icon: 'warning',
+                    title: 'Format tugas salah',
+                    html: 'Gunakan format: <code>Nama=Nilai</code><br>Contoh: <code>UH1=100, UH2=100, UTS=100</code>',
+                    footer: 'Setiap tugas dipisah dengan koma, dan harus ada tanda sama dengan (=)'
+                });
+            }
+            
+            // Show loading
+            Swal.fire({
+                title: 'Memproses...',
+                html: editIdBab ? 'Memperbarui data mapel' : 'Menyimpan data mapel baru',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+            
+            try {
+                // Call simpanMapel (akan otomatis handle V2 conversion di backend)
+                const result = await apiRequest({
+                    action: 'simpanMapel',
+                    id_bab: editIdBab,
+                    nama_mapel: namaMapel,
+                    nama_bab: namaBab,
+                    config_kolom: configKolom,
+                    elemen: elemen || '-',
+                    tujuan: tujuan || '-',
+                    tingkat: tingkat,
+                    semester: semester
+                });
+                
+                if (result.status === 'success') {
+                    const successMsg = editIdBab ? 
+                        '✅ Data mapel berhasil diperbarui' : 
+                        '✅ Mapel baru berhasil dibuat<br><small class="text-muted">Sistem otomatis membuat struktur: Mapel → Bab → Tugas</small>';
+                    
+                    // Tampilkan warning jika bab berpindah mapel master
+                    if (result.warning) {
+                        await Swal.fire({
+                            icon: 'warning',
+                            title: 'Berhasil dengan Perubahan',
+                            html: `${successMsg}<br><br><div class="alert alert-warning text-start small mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i><strong>Perhatian:</strong> ${escapeHtml(result.warning)}</div>`,
+                            confirmButtonText: 'Mengerti'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            html: successMsg,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                    
+                    // Reload data
+                    await loadMapel();
+                    resetFormMapel();
+                    
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal menyimpan',
+                        text: result.message || 'Terjadi kesalahan saat menyimpan data',
+                        footer: 'Periksa koneksi atau format data Anda'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error simpan mapel:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Koneksi Gagal',
+                    text: 'Tidak dapat terhubung ke server. Periksa URL Apps Script atau koneksi internet.',
+                    footer: '<a href="#" onclick="openSubMenu(\'pengaturan\')">Klik di sini untuk cek konfigurasi</a>'
+                });
+            }
+        }
+        async function hapusMapel(id) {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Hapus Mapel/Bab?',
+                html: `Bab dan semua tugas yang terkait akan dinonaktifkan.<br><small class="text-danger">Aksi ini tidak bisa dibatalkan secara langsung.</small>`,
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: '<i class="bi bi-trash me-1"></i>Ya, Hapus',
+                cancelButtonText: 'Batal'
+            });
+            if (!result.isConfirmed) return;
+            apiRequest({ action: 'hapusMapel', id_bab: id }).then(res => {
+                if (res.status === 'success') { Swal.fire('Berhasil', 'Data mapel berhasil dihapus', 'success'); loadMapel(); }
+                else { Swal.fire('Gagal', res.message || 'Terjadi kesalahan', 'error'); }
+            });
+        }
         function loadJadwal() {
             apiRequest({ action: 'getJadwal' }).then(res => {
                 if (res.status === 'success' && res.data) {
@@ -4560,14 +5313,14 @@
                     if (res.data.length === 0) {
                         h = '<tr><td colspan="3" class="text-center text-muted py-4">Belum ada data jadwal. Silakan tambah.</td></tr>';
                     } else {
-                        res.data.forEach(j => { let dataJson = encodeURIComponent(JSON.stringify(j)); h += `<tr><td>${j.hari}<br>${j.jam}</td><td>${j.mapel} (${j.kelas})</td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-warning text-white" onclick="editJadwal('${dataJson}')"><i class="bi bi-pencil"></i></button><button class="btn btn-danger" onclick="hapusJadwal('${j.id}')"><i class="bi bi-trash"></i></button></div></td></tr>`; });
+                        res.data.forEach(j => { let dataJson = encodeURIComponent(JSON.stringify(j)); h += `<tr><td>${j.hari}<br>${j.jam}</td><td>${escapeHtml(resolveMapelLabel(j.mapel))} (${escapeHtml(j.kelas)})</td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-warning text-white" onclick="editJadwal('${dataJson}')"><i class="bi bi-pencil"></i></button><button class="btn btn-danger" onclick="hapusJadwal('${j.id}')"><i class="bi bi-trash"></i></button></div></td></tr>`; });
                     }
                     document.getElementById('listJadwal').innerHTML = h;
                 } else {
                     // Fallback ke cache jika ada
                     if (jadwalCache.length > 0) {
                         let h = '';
-                        jadwalCache.forEach(j => { let dataJson = encodeURIComponent(JSON.stringify(j)); h += `<tr><td>${j.hari}<br>${j.jam}</td><td>${j.mapel} (${j.kelas})</td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-warning text-white" onclick="editJadwal('${dataJson}')"><i class="bi bi-pencil"></i></button><button class="btn btn-danger" onclick="hapusJadwal('${j.id}')"><i class="bi bi-trash"></i></button></div></td></tr>`; });
+                        jadwalCache.forEach(j => { let dataJson = encodeURIComponent(JSON.stringify(j)); h += `<tr><td>${j.hari}<br>${j.jam}</td><td>${escapeHtml(resolveMapelLabel(j.mapel))} (${escapeHtml(j.kelas)})</td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-warning text-white" onclick="editJadwal('${dataJson}')"><i class="bi bi-pencil"></i></button><button class="btn btn-danger" onclick="hapusJadwal('${j.id}')"><i class="bi bi-trash"></i></button></div></td></tr>`; });
                         document.getElementById('listJadwal').innerHTML = h + '<tr><td colspan="3" class="text-center text-warning small">⚠️ Menggunakan data cache (offline)</td></tr>';
                     } else {
                         document.getElementById('listJadwal').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">❌ Gagal memuat jadwal: ' + (res.message || 'Koneksi error') + '</td></tr>';
@@ -4580,8 +5333,178 @@
         }
         function editJadwal(json) { let d = JSON.parse(decodeURIComponent(json)); document.getElementById('jadwal-id').value = d.id; document.getElementById('jadwal-hari').value = d.hari; document.getElementById('jadwal-kelas').value = d.kelas; document.getElementById('jadwal-mapel').value = d.mapel; let times = d.jam.split(' - '); if (times.length > 1) { document.getElementById('jam_mulai').value = times[0]; document.getElementById('jam_selesai').value = times[1]; } document.getElementById('btn-simpan-jadwal').innerText = "Update Jadwal"; document.getElementById('btn-batal-jadwal').classList.remove('d-none'); }
         function resetFormJadwal() { document.getElementById('formJadwal').reset(); document.getElementById('jadwal-id').value = ''; document.getElementById('btn-simpan-jadwal').innerText = "Simpan Jadwal"; document.getElementById('btn-batal-jadwal').classList.add('d-none'); }
-        function simpanJadwal(e) { e.preventDefault(); apiRequest({ action: 'simpanJadwal', id: document.getElementById('jadwal-id').value, hari: document.getElementById('jadwal-hari').value, jam: document.getElementById('jam_mulai').value + ' - ' + document.getElementById('jam_selesai').value, kelas: document.getElementById('jadwal-kelas').value, mapel: document.getElementById('jadwal-mapel').value }).then(res => { if (res.status === 'success') { alert('Disimpan'); loadJadwal(); resetFormJadwal(); } else { Swal.fire('Gagal', res.message || 'Jadwal gagal disimpan', 'error'); } }).catch(() => Swal.fire('Gagal', 'Koneksi server gagal', 'error')); }
+        function simpanJadwal(e) { e.preventDefault(); apiRequest({ action: 'simpanJadwal', id: document.getElementById('jadwal-id').value, hari: document.getElementById('jadwal-hari').value, jam: document.getElementById('jam_mulai').value + ' - ' + document.getElementById('jam_selesai').value, kelas: document.getElementById('jadwal-kelas').value, mapel: document.getElementById('jadwal-mapel').value }).then(res => { if (res.status === 'success') { Swal.fire('Berhasil','Jadwal tersimpan','success'); loadJadwal(); resetFormJadwal(); } else { Swal.fire('Gagal', res.message || 'Jadwal gagal disimpan', 'error'); } }).catch(() => Swal.fire('Gagal', 'Koneksi server gagal', 'error')); }
         function hapusJadwal(id) { if (confirm('Hapus?')) apiRequest({ action: 'hapusJadwal', id: id }).then(res => { if (res.status === 'success') loadJadwal(); else Swal.fire('Gagal', res.message || 'Jadwal gagal dihapus', 'error'); }).catch(() => Swal.fire('Gagal', 'Koneksi server gagal', 'error')); }
+        async function quickAddJadwal() {
+            const currentKelas = document.getElementById('jurnal-kelas')?.value || document.getElementById('jadwal-kelas')?.value || '';
+            const currentMapel = document.getElementById('jurnal-mapel')?.value || '';
+            const currentJam = document.getElementById('inputJamKe')?.value || '';
+
+            // Nama hari ini dalam bahasa Indonesia
+            const hariNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            const tglVal = document.getElementById('jurnal-tgl')?.value;
+            const targetDate = tglVal ? new Date(`${tglVal}T00:00:00`) : new Date();
+            let todayDayName = hariNames[targetDate.getDay()];
+            if (todayDayName === "Minggu") todayDayName = "Senin";
+
+            // Generate options untuk Hari
+            const hariList = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            let optHari = hariList.map(h => `<option value="${h}" ${h.toLowerCase() === todayDayName.toLowerCase() ? 'selected' : ''}>${h}</option>`).join('');
+
+            // Generate options untuk Kelas (dari siswaCache atau select #jurnal-kelas)
+            let uniqueKelas = [];
+            if (siswaCache && siswaCache.length > 0) {
+                uniqueKelas = [...new Set(siswaCache.map(s => s.kelas).filter(k => k))].sort();
+            }
+            if (uniqueKelas.length === 0 && document.getElementById('jurnal-kelas')) {
+                const opts = Array.from(document.getElementById('jurnal-kelas').options);
+                uniqueKelas = opts.map(o => o.value).filter(v => v);
+            }
+            let optKelas = '<option value="">- Pilih Kelas -</option>';
+            uniqueKelas.forEach(k => {
+                optKelas += `<option value="${escapeHtml(k)}" ${k === currentKelas ? 'selected' : ''}>${escapeHtml(k)}</option>`;
+            });
+
+            // Generate options untuk Mapel (hanya nama_mapel murni)
+            const mapelSet = new Set();
+            (mapelCache || []).forEach(m => {
+                let name = (m.nama_mapel || '').trim();
+                if (!name && m.nama_bab) name = m.nama_bab.split(' - ')[0].trim();
+                if (name) mapelSet.add(name);
+            });
+            let optMapel = '<option value="">- Pilih Mapel -</option>';
+            Array.from(mapelSet).sort().forEach(m => {
+                optMapel += `<option value="${escapeHtml(m)}" ${m.toLowerCase() === currentMapel.toLowerCase() ? 'selected' : ''}>${escapeHtml(m)}</option>`;
+            });
+
+            // Generate options untuk Jam
+            const standardSlots = [
+                "07:00 - 08:30",
+                "08:30 - 10:00",
+                "10:30 - 12:00",
+                "12:30 - 14:00",
+                "14:00 - 15:30",
+                "15:30 - 17:00"
+            ];
+            let optJam = '<option value="">- Pilih Jam Pelajaran -</option>';
+            let customJamNeeded = true;
+            standardSlots.forEach(slot => {
+                const sel = (slot === currentJam) ? 'selected' : '';
+                if (sel) customJamNeeded = false;
+                optJam += `<option value="${slot}" ${sel}>${slot}</option>`;
+            });
+            optJam += `<option value="custom" ${customJamNeeded && currentJam ? 'selected' : ''}>Input Manual / Jam Lainnya...</option>`;
+
+            const { value: formValues } = await Swal.fire({
+                title: '<i class="bi bi-calendar-plus text-primary me-2"></i>Tambah Jadwal Cepat',
+                html: `
+                <div class="text-start small p-1">
+                    <p class="text-muted mb-3" style="font-size: 12px;">Tambahkan jadwal pelajaran langsung tanpa harus pindah ke menu Pengaturan.</p>
+                    
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Hari</label>
+                        <select id="qa-hari" class="form-select form-select-sm">${optHari}</select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Kelas</label>
+                        <select id="qa-kelas" class="form-select form-select-sm">${optKelas}</select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Mata Pelajaran (Master)</label>
+                        <select id="qa-mapel" class="form-select form-select-sm">${optMapel}</select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Jam Pelajaran</label>
+                        <select id="qa-jam-select" class="form-select form-select-sm mb-1" onchange="const c = document.getElementById('qa-jam-custom'); if (this.value==='custom') { c.classList.remove('d-none'); c.focus(); } else { c.classList.add('d-none'); }">
+                            ${optJam}
+                        </select>
+                        <input id="qa-jam-custom" class="form-control form-control-sm ${customJamNeeded && currentJam ? '' : 'd-none'}" placeholder="Contoh: 07:00 - 08:30" value="${escapeHtml(currentJam)}">
+                    </div>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Simpan Jadwal',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#0d6efd',
+                focusConfirm: false,
+                didOpen: () => {
+                    const sel = document.getElementById('qa-jam-select');
+                    if (sel && sel.value === 'custom') {
+                        document.getElementById('qa-jam-custom')?.classList.remove('d-none');
+                    }
+                },
+                preConfirm: () => {
+                    const hari = document.getElementById('qa-hari')?.value;
+                    const kelas = document.getElementById('qa-kelas')?.value.trim();
+                    const mapel = document.getElementById('qa-mapel')?.value.trim();
+                    const jamSelect = document.getElementById('qa-jam-select')?.value;
+                    const jamCustom = document.getElementById('qa-jam-custom')?.value.trim();
+                    const jam = (jamSelect === 'custom') ? jamCustom : jamSelect;
+
+                    if (!hari || !kelas || !mapel || !jam) {
+                        Swal.showValidationMessage('Harap lengkapi semua data: Hari, Kelas, Mapel, dan Jam');
+                        return false;
+                    }
+                    return { hari, jam, kelas, mapel };
+                }
+            });
+
+            if (!formValues) return;
+
+            showToast("Menyimpan jadwal...", "info");
+            try {
+                const res = await apiRequest({
+                    action: 'simpanJadwal',
+                    hari: formValues.hari,
+                    jam: formValues.jam,
+                    kelas: formValues.kelas,
+                    mapel: formValues.mapel
+                });
+
+                if (res.status === 'success') {
+                    // Update cache jadwal lokal & reload jadwal
+                    await loadJadwal();
+                    updateMapelDropdowns();
+
+                    // Sinkronisasi form Jurnal jika aktif
+                    const jurnalKelas = document.getElementById('jurnal-kelas');
+                    const jurnalMapel = document.getElementById('jurnal-mapel');
+                    const inputJam = document.getElementById('inputJamKe');
+
+                    if (jurnalKelas) {
+                        jurnalKelas.value = formValues.kelas;
+                        renderAttendanceList();
+                    }
+                    if (jurnalMapel) {
+                        updateMapelDropdowns();
+                        jurnalMapel.value = formValues.mapel;
+                    }
+                    if (inputJam) {
+                        inputJam.value = formValues.jam;
+                    }
+
+                    // Jalankan pengecekan jadwal agar langsung sinkron
+                    if (typeof cekWaktuJadwal === 'function') {
+                        await cekWaktuJadwal();
+                    }
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Jadwal Berhasil Ditambahkan!',
+                        text: `${formValues.mapel} (${formValues.kelas}) - ${formValues.hari} ${formValues.jam}`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    Swal.fire('Gagal', res.message || 'Gagal menyimpan jadwal', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Terjadi kesalahan saat menyimpan jadwal ke server', 'error');
+            }
+        }
         async function downloadBackup() {
             Swal.fire({ title: 'Memproses Backup', text: 'Mohon tunggu, sedang mengambil semua data...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
             try {
@@ -4760,7 +5683,7 @@
                 return !tingkat || !mt || mt === '-' || mt === tingkat;
             });
             if (!mapels.length) { container.textContent = 'Belum ada mapel untuk tingkat kelas ini.'; return; }
-            container.innerHTML = `<div class="d-flex justify-content-between mb-1"><span>Pilih mapel yang menjadi komponen analisis</span><button type="button" class="btn btn-link btn-sm p-0" onclick="toggleSikapKomponen(true)">Pilih semua</button></div>` + mapels.map(m => `<label class="me-3 mb-1"><input type="checkbox" class="sikap-komponen me-1" value="${m.id_bab}" checked> ${escapeHtml(m.nama_bab)}</label>`).join('');
+            container.innerHTML = `<div class="d-flex justify-content-between mb-1"><span>Pilih mapel yang menjadi komponen analisis</span><button type="button" class="btn btn-link btn-sm p-0" onclick="toggleSikapKomponen(true)">Pilih semua</button></div>` + mapels.map(m => `<label class="me-3 mb-1"><input type="checkbox" class="sikap-komponen me-1" value="${m.id_bab}" checked> ${escapeHtml(formatMapelLabel(m))}</label>`).join('');
         }
 
         function toggleSikapKomponen(checked) {
